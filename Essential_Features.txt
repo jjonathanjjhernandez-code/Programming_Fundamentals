@@ -1,0 +1,97 @@
+====Introduction====
+As you go with your adventures in coding in the C language,
+you will begin to see a pattern of in the usage of the language across many examples.
+Only knowing the syntax of a programming simply isn't enough. But at least the concepts and notes
+provided by the Extreme C book{https://www.packtpub.com/free-ebook/extreme-c/9781789343625}
+will highlight some very good practices, and features for any good program!
+
+====================================================================================
+        Essential Feautures and Machinery Required to write Expert C Code
+====================================================================================
+    -@-Preprocessor directives, macros, and conditional compilation: Preprocessing is one of those C features 
+    that you can not easily find in other programming languages.Preprocessors brings a lot of advantages, and we'll
+
+    -@-Variable Pointers: This section deep-dives into variable pointers and their uses. Introduce some insights based 
+    on the misuse of variable pointers.
+    
+    -@-Functions:Deep dive into everything there is to know about functions! Book dives into using functions as building
+     blocks for writing procedural code. Expanding on function call mechanisms and how functions receives its arguments 
+     from the caller function.
+    
+    -@-Function Pointers: A function pointer is a pointer that points to an existing function instead of variable. The 
+    ability to store a pointer to an existing logic is profoundly important in algorithm design. Function pointers appear 
+    in a vast range of applications ranging frmo loading dynamic libraries to polymorphism.
+    
+    -@-Structures: C structures might have a simple syntax and convey a simple idea, but they are the main building blocks
+     for writing well-organized and more object-oriented code.
+==================================================================================
+
+==================================================================================
+                        Preprocessor directives
+==================================================================================
+    -@-Small Summary: the purpose of preprocessing is to remove the preprocessing directives and substitute them with equivalent
+    generated C code and prepare a final source that is ready to be submitted to the compiler.
+    The behavior of the C preprocessor can be controlled and influenced using a set of directives(expansion on the preprocessing
+    instruction set will be expanded on another .txt file!). C directives are lines of code starting with a "#" character typically 
+    at the top of any header or source file. These lines are only meaingful to the preprocessor and never to the C compiler. We'll 
+    explore just a couple of the most used directives.
+
+    ~@~Macros: The reality is(despite some feedback from other devs) you will find macros in any any well-known C project.
+    An example being the Apache HTTP Server where you can download the project and grep to find any "#define" directives.
+        *~*Side Note: The grep command refers to a standard shell utility program in Unix-like operating systems that searches for a
+        pattern in a stream of characters. It can be used to search for a text or a pattern in the context of all files found in a 
+        given path*~*
+    The following are some typical applications for macros use cases....
+        --Defining a constant
+        --Using as a function instead of writing a C function
+        --Loop unrolling
+        --Header guards
+        --Code generation
+        --Conditional compilation
+
+
+@!@Defining Constants
+|===============================================|
+|       int main(int argc, char** argv) {       |
+|           int x = 2;                          |
+|           int y = 3                           |
+|           int z = x + y;                      |
+|           return 0;                           |
+|       }                                       |
+|===============================================|
+
+@!@Constants with Macros + Functionlike behavior
+|===============================================|
+|        #define ADD(a,b)a + b                  |
+|        #define Z 3                            |
+|        int main(int argc, char** argv){       |
+|            int x = 2;                         |
+|            int y = Z;                         |
+|            int w = ADD(x,y);                  |
+|            return 0;                          |
+|        }                                      |
+|===============================================|
+
+As you can see the Macros act like regular C functions allowing to represent logic before compilation
+(for the compiler does not see your directives only your preprocessor will!)
+|===============================================|
+|          #include <stdio.h>                   |
+|          #include <string.h>                  |
+|          #define CMD(NAME) \                  |
+|          char NAME ## _cmd[256] = "";         |
+|          strcpy(NAME ## _cmd, #NAME);         |
+|            int main(int argc, char** argv) {  |
+|             CMD(copy)                         |   -->char copy_cmd[256] = ""; strcpy(copy_cmd, "copy");
+|             CMD(paste)                        |   -->char paste_cmd[256] = ""; strcpy(paste_cmd, "paste");
+|             CMD(cut)                          |   -->char cut_cmd[256] = ""; strcpy(cut_cmd, "cut");
+|             char cmd[256];                    |As you can see we defined an operation in the macros specifically
+|             scanf("%s", cmd);                 |to make an array of characters with size 256 bytes and copy a word onto there!
+|            if (strcmp(cmd, copy_cmd) == 0) {  |
+|            // ...}                            |
+|            if (strcmp(cmd, paste_cmd) == 0) { |
+|            // ...}                            |
+|            if (strcmp(cmd, cut_cmd) == 0) {   | 
+|            // ...}                            |
+|            return 0;}                         |
+|===============================================|
+

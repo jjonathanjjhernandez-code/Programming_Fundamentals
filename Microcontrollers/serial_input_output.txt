@@ -1,0 +1,19 @@
+        ===========================================
+                        Serial I/O
+        ===========================================
+Serial communication is the simplest possible way to interface your microcontroller
+with your desktop or laptop computer.
+
+So, this begs the question.....how do computers or integrated circuit components
+actually talk to one another?
+Well one side sends a signal by outputting high and low voltage pulses on a wire that
+connects it to the other device. The other side, in input mode, listens to the voltages
+on the wire.
+        ===========================================
+                    Serial Communication
+        ===========================================
+The rules for encoding data into voltage pulses and decoding the voltage pulses back into
+data is called a serial protocol. We can demonstrate this feature using the universal 
+asynchronous receive and transmit(UART) signal.
+
+Imagine two people who want to communicate with one another 

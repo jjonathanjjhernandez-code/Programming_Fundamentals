@@ -1,0 +1,139 @@
+====Chapter Four Intro.====
+For a C programmer, memory management is a crucial topic and to be able
+to implement. To know the common practices one needs to understand a basic knowledge about
+memory structure. This is typically done for the precaution of causing serious issues and
+having no traces to bugs that may suddenly appear(which typically can be a memory issue!).
+You might know that memory management is fully manual in C, and more than that, the programmer
+is the sole responsible person who allocates memory regions and deallocates them once they're no
+longer needed.
+As you read along the text you will see two segments called Stack and Heap.
+They are part of the dynamic memory layout of a process and all the allocations and deallactions
+happen in these segments.
+
+===========================================================================
+                        Process Memory Layout
+===========================================================================
+Whenever you run an executable file, the operating system creates a new process.
+A process is a live and running program that is loaded into the memory and has a unique Process
+Identifier(PID).
+A process remains running until it either exits normally, or the process is given a signal such as...
+    --SIGTERM: termination signal. Allows the process to clean up
+    --SIGINT: interrupt signal usually sent to the foreground process by pressing ctrl+c
+    --SIGKIL: kill signal and it closes the process forcefully with no clean up
+
+When creating a process, one of the first things that operating systems do is allocate a portion of memory
+dedicated to the process and then apply a predefined memory layout. This layout is relatively similar across
+operating systems.
+The memory layout of an ordinary process is divided into multiple parts. Each part is called a SEGMENT. Each
+segment is a region of memory which has a definite task and it is supposed to store a specific type of data.
+Here is a list of segments for memory layouts of a running process
+    --Uninitialized data segment or Block Started by Symbol(BSS) segment
+    --Data Segment
+    --Text Segment or Code Segment
+    --Stack Segment
+    --Heap Segment
+
+
+===========================================================================
+                    Discovering Memory Structure
+===========================================================================
+An executable file and a process are NOT the same thing. An executable file contains the machine instructions,
+and it is produced by the compiler. BUt a process is a running program spawned by executing an executable object
+file, consuming a region of the main memory, and the CPU is constantly fetching and executing its instructions.
+**A process is a living entity that is being executed inside the operating system while the executable object file is
+just a file containing a premade initial layout acting as a basis for spawning future processes.**
+
+Thus this divides the process into two parts....static and dynamic memory layouts.
+Static and Dynamic memory layouts both have predetermined set of segments.
+    --Static Memory:The content of the static memory layout is 
+    prewritten into the executable object file by the compiler, when compiling the source code.
+    --Dynamic Memory: The content of the dynamic memory layout is written by the process instructions allocating
+    memory for variables and arrays, and modifying them according to the program's logic.
+Thus when we check for the content of the static memory layout we look at the source code or the compiled object file.
+As for the dynamic content we must run the process and view it from there......
+
+
+===========================================================================
+                                BSS Segment
+===========================================================================
+BSS stands for Block Started by Symbol. For this specific segment we use it for uninitialized global variables or global
+variables set to zero. Here is an example code of such a process...
+|=======================================|
+|    int global_variable_1;             |
+|    int global_variable_2;             |
+|    int global_variable_3 = 0;         |
+|    int main (int argc, char **argv){  |
+|        return 0;                      |
+|    }`                                 |
+|=======================================|
+to check out your stuff especially static memory layouts first compile your .c file into a .out file like so....
+    $~>> bss-example.c -o bss-example.out
+    $~>> size bss-example.out and something should display like this...
+
+PS C:\Users\jjona\Programming_Fundamentals> size bss-example.out
+   text    data     bss     dec     hex filename
+  11184    2232     416   13832    3608 bss-example.out <---bss segment is roughly 416 bytes!
+If you compare this output with a simple.c output the BSS segment has notably changed. In other words,
+declaring global variables that are NOT initialized or set to zero will add up to the BSS segment. These special global
+variables are part of the static layout and they become preallocated when a process is loading, and they never get deallocated
+until the process is alive.
+{NoTE: Because of design concerns, we typically prefer to use local variables in algorithms. Having too many global variables can
+increase the binary size. In addition, keeping sensitive data in the global scope, it can introduce security concerns. Such as concurrency
+issues, especially data races(maybe more than one functin or variable needs to grab the same global variable), namepsace pollution,
+unknown ownership, and having too many variables in the global scope, are some of the complications the global variables introduce.}
+
+
+===========================================================================
+                                Data Segment
+===========================================================================
+Now add more global variables to the previous code and this time assign a value to them that IS NOT ZERO!
+|=============================================================================|
+|        int global_variable_1; <---default value is always zero              |
+|        int global_variable_2;                                               |
+|        int global_variable_3;                                               |
+|                                                                             |
+|        double global_variable_4 = 4.5;                                      |
+|        char global_variable_5 = 'A';                                        |
+|                                                                             |
+|        int main(int argc, char **argv){                                     |
+|            return 0;                                                        |
+|        }                                                                    |
+|=============================================================================|
+here is the output....
+PS C:\Users\jjona\Programming_Fundamentals> size bss-example.out
+ text    data     bss     dec     hex filename
+  11184    2248     416   13848    3618 bss-example.out
+You will take note that the data segment has increased by roughly 14 bytez. That is where those initialized
+global variables go!
+ON a further note, the size command only shows the size of the segments, but not their contents. There are other
+commands, specific to each operating system, that can be used to inspect the content of segments found in an object file.
+We can probe the static memory layout inside the object files using Linux "readelf" and "objdump" commands to see
+the contents of ELF files.
+
+Say you got
+|==========================================|
+|        int x = 33;                       |
+|        int y = 0x12153467;               |
+|        char z[6] = "ABCDE";              |
+|        int main(int argc, char **argv){  |
+|            return 0;                     |
+|        }                                 |
+|==========================================|
+
+PS C:\Users\jjona\Programming_Fundamentals> objdump -s -j .data obj-example.out
+
+obj-example.out:     file format pei-x86-64
+
+Contents of section .data:
+ 140003000 21000000 67341512 41424344 45000000  !...g4..ABCDE...
+ 140003010 f0270040 01000000 00000000 00000000  .'.@............
+ 140003020 ffffffff ffffffff 00000000 00000000  ................
+ 140003030 02000000 00000000 00000000 00000000  ................
+ 140003040 ffffffff 00000000 00000000 00000000  ................
+ 140003050 60250040 01000000 00000000 00000000  `%.@............
+ 140003060 90250040 01000000 00000000 00000000  .%.@............
+ 140003070 d0250040 01000000 00000000 00000000  .%.@............
+ 140003080 e0250040 01000000 00000000 00000000  .%.@............
+ 140003090 10260040 01000000 00000000 00000000  .&.@............
+ 1400030a0 70710040 01000000 00000000 00000000  pq.@............
+

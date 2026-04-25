@@ -1,0 +1,97 @@
+                ==========================================================
+                        Introduction to the Timer/Counter Hardware
+                ==========================================================
+Cool time to handle internal timer-counter hardware!!
+No more stalling CPU cycles using delay loops! We will use the dedicated hardware given to us to
+do the counting.
+You'll find that using the hardware timers costs a little bit in initial setup, but makes your resulting code
+significantly simpler, makes the timing significantly more accurate, and frees up the CPU for useful work![HOORAY!]
+
+
+                ==========================================================
+                        Timer/Counters: Why and HOW?
+                ==========================================================
+Let us look at a function used for playing a speaker.....
+****
+    void playNote(uint16_t wavelength, uint16_t duration){
+        uint16_t elapsed;
+
+        uint16_t i;
+        for(elapsed = 0; elapsed < duration; elapsed+= wavelength){
+                //for loop with variable delay selects the pitch!!
+            for(i = 0;  i< wavelength;i++){
+                _delay_us(1);
+            }
+            SPEAKER_PORT ^= (1 << SPEAKER);
+        }
+    }
+    ****
+The code works perfectly fine, but if you'd like the CPU to do ANYTHING else at the same as the speaker function,
+well....you can't. It's all tied up doing the important task of waiting for a precise amount of time. We run into a similar
+situation with our LED blinking code where we invoke the _delay_ms() function. All of our processor power is momentarily tied
+up just spinning around in a fruitless loop that simply counts up until it is done!
+
+What we need instead is a clock that we can use as a timebase and a counter that'll count up a certain number of clock ticks for
+us before it acts. 
+This is, of course, what the internal timer/counter hardware peripheral does.
+Let us take a small moment to see how the hardware is implemented!
+Based on the datasheet here is what I could find.....
+    --Two 8-bit Timer/Counters with separate prescaler, and compare mode
+    --One 16-bit Timer/Counter with separate prescaler, compare mode, and capture mode
+    --Real time counter with separate oscillator 
+    --Six PWM channels
+{**Check out System Clock and Clock Options for the Atmel328p chip it is pretty cool!**}
+Essentially, the timer/counter hardware works roughly like so....
+{System clock-->Clock prescaler
+                              -->Counter-->TCNTn Register
+        External Clock Events                           -->Compare Unit-
+                                           OCRnx Register               =
+                                                                         --> Wave form generator--> output    
+                                                              Output Mode-->
+                                                            Waveform mode-->
+}
+Input arrives from either the system clock or an external source(some other oscillator crystal) connected up 
+to an input pin(T0 for counter 0).
+In this way, the same hardware can be used as a timer(counting ticks of the system clock) or a generic counter(counting voltage change
+events on the dedicated input pin). The current count is stored in an internal timer/counter register (TCNTn)
+
+Your code can read the count from TCNT registers at any time, yielding the current count value(i beliveve since startup....). You can
+also write to it, and you will often do so inorder to reset the count to zero. With just reading and writing to the timer register, you
+can make the equivalent of a stopwatch-set the timer value to zero, do something, adn then check the value again to see how much time has
+elapsed.       
+
+If instead of a stopwatch, you would like an alarm clock, you can put the Timer Compare Unit to work for you. Its job is to let you know
+when a certain count value is reached. You store this compare value in the Output Compare Register(OCRn). This way, you can store the value
+you would like for an elapsed time, a frequency or a duty cycle un the OCRn, and then forget about it- the timer hardware will do the rest
+for you, freeing up on the CPU to do more interesting things.
+
+So the counter is counting, and the compare unit comparing the count value to a value that you set. What happens when the compare value is
+reached? A compare event triggers(interrupts??!!) the Waveform Generator, and what it does depends on a pair of important configuration options: 
+the waveform mode and the output mode. In brief, the Waveform Generator unit can be configured to generate three main types of output depending
+on the waveform mode, counter, timer or PWM(<--- I LOVE THIS ONE!)
+Whether you want pins set, cleared, or toggled is determined by the output modes.
+The timer/counters can also trigger interrupts, which is useful when you want to periodically update variables or run code(check out the 
+interrupts TOPIC!)
+For now we are focusing on the counter and timer waveform modes, and direct-to-pin-output!
+
+And if one timer/counter weren't enough, the ATmega series of AVR chips have three timers, two with 8-bit(256 step) resolution and one with 16-bit
+(65,356 step) resolution. That way, you can have one timer/counter generating a frequency for you, another keeping track of wall-clock time, and 
+the third timing short-duration events. They're very useful once you've learned how to use them.
+
+As you can see, there is a lot of flexibility and utility built into the timer/counter hardware. If you want to cocunt button presses, you can simply
+hook up your (hardware-debounced) swtich directly to the appropriate counter input pin. Or imagine that you want to get the time in between button presses.
+Then you can set up your code to zero the TCNT register at the beginning, connect the counter up to the system clcok, and then when the button is pressed,
+simply read out the value in TCNT. The count will be the numbder of system clock ticks that have elapsed, which you can then maniuplate any way you want.
+The count will be the numbder of system clock ticks that have elapsed, which you can then manipulate any way you want. And because all of this is taken
+care of by the timer/counter hardware, the CPU is free to listen to serial ports or crunch numbers at the same time.
+                ==========================================================
+                                Basic Waveform Generation Modes
+                ==========================================================
+When you are configuring the timer/counter hardware, the first thing you will need to decide is what mode of operation you want the timer/counter operating
+in. The AVR datasheet includes fairly good descriptions of each of these modes and also a table that describes the bits you need to set to put the timers
+in each mode. Here's a quick summary of the two options...
+    --Normal Mode: In this mode, the counter counts up until it overflows at 255, or 65,535. You use this most when you are counting clicks, timing an event,
+    or clearing and reading TCNT from your code. We'll be using Normal Mode for the reaction timer?
+    --CTC Mode: In Clear Timer on Compare Match mode, the counter resets itself automatically when it reaches the value that is stored in the OCRnA register
+    instead of waiting until it hits 255 or 65,535. So by writing to the output compare register, we control the frequency of the cycles.
+    Configuring a pin to toggle, set or clear when a match occurs is a very common choice.

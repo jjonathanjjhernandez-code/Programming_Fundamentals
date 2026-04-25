@@ -1,0 +1,45 @@
+            ========================================
+                        Bit Twiddling
+            ========================================
+So, if you have taken notice you'll realize that some of the code looks a bit odd.
+For instance look at this bit....
+**
+uint8_t onebitShifter(uint8_t oneByte, uint8_t shift){
+    uint8_t temp_byte = (0b00000001);
+    temp_byte = (temp_byte<<shift);//ex) shift=2
+    return (oneByte |= temp_byte);
+}
+**
+how is this possible and what does it mean??
+It is a fundamental concept in microcontroller-specific programming: how to flip individual
+bits on and off inside a hardware register.
+It allows to turn off/on particular bits without disturbing the others. Bitwise logical operators
+operations-'bit twiddling'- allow us to modify any one bit out of the register byte without having
+to think explictly about the other.
+    {
+        C Asides:#defines
+#define statements improve code readability and portability by defining human-friendly synonyms
+for constants or code fragments.
+Definitions are handled by the preprocessor, which goes through your code and essentially does a 
+search-and-replace for all your defines before handing the result off to the compiler.
+In addition to user-defined defines, if you look in the avr/io.h file that we include in all our 
+example codes, you'll find that there is a #define for every hardware. register that's listed in the
+datasheet. These definitions point in turn to the correct memory locations of the AVR's hardware 
+registers. <---only really use if you nEED to!
+    }
+Now as we have mentioned before...the pins are literally bits!!
+**Set a bit
+    BYTE |= (1<<i);
+**Clear a bit
+    BYTE &= ~(1<<i);
+**Toggle a bit
+    BYTE ^= (1<<i);
+            ========================================
+                            Summary
+            ========================================
+We've learned a lot about bit twiddling. We are able to setup the data-direction registers to enable any
+given pin for output, and then how writing a logical one or zero to the same bit number in another register set
+the output voltage on that pin to 5v or 0v, respectively.
+
+And because digitial output is all about controlling individual bits, along came the use of bit twiddling.
+Which pretty much sums up our interpretation and use for twiddle bits!

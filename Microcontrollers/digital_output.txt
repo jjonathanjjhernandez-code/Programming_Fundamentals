@@ -1,0 +1,158 @@
+            ==========================================
+                        Digital Output
+            ==========================================
+{Projects based on MAKE-AVR Programming}
+This here should be presented as a pattern generator!
+The goal is to make at least 8 LEDs turn on and off really quickly. Here is an
+example test code....
+***
+        #include <avr/io.h>         //Defines pins, ports, etc
+        #include <util/delay.h>     //Functions to waste time
+        int main(void){
+            //-----Inits----//
+            DDRB |= (1<<PB0);   //Data Direction Register B:
+                                //Writing a one to the bit enables output
+            //-----Event Loop-----//
+            while(1){
+                PORTB = 0b00000001; //turn on first led bit/pin in PORTB
+                _delay_ms(1000); // wait!
+
+                PORTB = 0b00000001; //turn off all B pins, including the LED pin
+                _delay_ms(1000);    //wait!
+            }
+            return 0;   //this line is never reached the while loop is infinite!
+
+        }
+    ***
+    --Why the return 0;?--
+For programs that run on your desktop computer it is important for the operating system to know
+whehter it ran correctly or not. For that reason, GCC the compiler requires that every main main() 
+to end with a return code(even if it i never reached in most cases)
+            ==========================================
+                        Hardware Registers
+            ==========================================
+So you might be asking yourself....what is the purpose of DDRB = 0b00000001?
+Almost all of the pins on the AVR chips are configurable as either input or output pins. That is,
+they can be internally hooked up as either voltage-sensing components or as transistor switches that
+will connect the pin through to the VCC or GND voltage levels.
+
+Each slot in the AVR's memory is a byte, and each byte has eight bits. For a "normal" RAM location, these
+bits are used to encode(in binary) the number you'd like to store.
+Inside the chip, each bit in RAM is hooked up to a network of transistors that keep whatever electrical state
+was last imposed on them.
+The ATMEGA328p has 2K bytes of internal SRAM(so rouhgly 16384bits)
+
+When you want to configure a microcontroller pin, it looks the same in code as saving a value into a variable.
+The chip's hardware registers are just like the RAM storage slots that you use for variables, only they each have side
+effects.
+So when you write DDRB = 0b00000001, you are not just storing the number one in a memory location, you are also flipping
+the transistor switches that are directly wired to each of the eight memory cells.
+
+Inside the AVR chip, the data-direction register(DDR) memory locations are physically wired up to the transistor switches that
+determine whether a given pin is in input or output mode.
+When you write the numeric value one to that register, it is remembered....
+    --When a one is stored in that register bit, the output switch is closed, thus pin configured as output
+    --When a one is stored in that register bit, the input switch is the one closed and the other open, thus pin configureed as 
+    input
+Because the hardware registers are physically connected to the input/output circuitry, the location CANNOT CHANGE(i mean just 
+look at atmega328p datasheet the pins from one to 32 each have their  own designated spot on the pin!)
+These registers are typically spelled out in the io.h header file so that we do not have to remember their numerical value, but
+ rather mnemonic names like DDRB, for "data-direciton register B"
+
+So try to think of each register as being a row of eight switches, and writing a number into that register is the equivalent of
+flipping some of the switches.
+            ==========================================
+                        Three most important hardware registers
+            ==========================================
+Each bank of pins(B,C and D on the Mega series AVRS) has three hardware register memory locations associated with it. Let x stand 
+for each bank'S letter: ex) DDRB, DDRC, DDRD
+    --DDRx data-direction registers(port x): These registers control whether each pin is configured for input or output-hence the 
+    data direction. After a reset or power-up, the default state is all zeros, corresponding to the pins being configured for 
+    input. TO enable the pin as an output just toggle the bit for the slot
+    
+    --PORTx port-x-data registers: When the DDRx bits are set to one for a given pin, the PORT register controls whether that pin 
+    is set to logic high or low(VCC voltage or ground)
+
+    With the DDR configured for input, setting the PORT bits on a pin will control whether it has internal pull-up resistor attached
+     or whether it is a  high-impendance state, effectively disconnected from the circuit....
+    
+    --PINx port-x-input pins address: The PIN register addresses are where you read the digital voltage values for each pin that 
+    is configured as input. Each PINx memory location is hooked up to a comparator circuit allowing you to only check if the pin
+     is voltage high or low(reads voltage values!) reading like a normal variable.
+
+!!!!A REMINDER: Always remember to set up your DDRx pins to know which pins are going to be outputs or inputs. Not only that 
+KNOW which register is for which...
+    --DDRx for configuration
+    --PORTx for signaling output or configuring internal resistors
+    --PINx for reading values of input pins
+                                           !!!!
+
+C:\Users\jjona\avr>winget search avr
+Name                         Id                               Version       Match     Source
+---------------------------------------------------------------------------------------------
+Remote your AVR 2013         9WZDNCRDPHNN                     Unknown                 msstore
+AVRDUDE                      AVRDudes.AVRDUDE                 8.1           Tag: avr  winget
+Arduino IDE RC               ArduinoSA.IDE.rc                 2.0.0-rc9.3   Tag: avr  winget
+Arduino IDE                  ArduinoSA.IDE.stable             2.3.8         Tag: avr  winget
+AVR-GCC                      ZakKemble.avr-gcc                14.1.0        Tag: avr  winget
+ESET AV Remover              ESET.AVRemover                   1.6.7.0                 winget
+Nexus Terminal               Heavrnl.NexusTerminal            0.8.1                   winget
+RemoteBoulderTimer           Navratovi.RemoteBoulderTimer     1.0.0.4                 winget
+Avro Keyboard                OmicronLab.Avro                  5.6.0                   winget
+WinPrint Hylafax for Windows michalhavranek.wphfxwin          1.8.0.1                 winget
+Altova RaptorXML Server      Altova.RaptorXMLServer.2025      2025.02.00.01 Tag: avro winget
+Altova RaptorXML+XBRL Server Altova.RaptorXMLServer.2025.XBRL 2025.02.00.04 Tag: avro winget
+Altova RaptorXML Server      Altova.RaptorXMLServer.2026      2026.00.00    Tag: avro winget
+Altova RaptorXML+XBRL Server Altova.RaptorXMLServer.2026.XBRL 2026.00.00    Tag: avro winget
+
+C:\Users\jjona\avr>winget install AVR-GCC
+Found AVR-GCC [ZakKemble.avr-gcc] Version 14.1.0
+This application is licensed to you by its owner.
+Microsoft is not responsible for, nor does it grant any licenses to, third-party packages.
+Downloading https://github.com/ZakKemble/avr-gcc-build/releases/download/v14.1.0-1/avr-gcc-14.1.0-x64-windows.zip
+  ██████████████████████████████   140 MB /  140 MB
+Successfully verified installer hash
+Extracting archive...
+Successfully extracted archive
+Starting package install...
+Path environment variable modified; restart your shell to use the new value.
+Command line alias added: "avr-addr2line"
+Command line alias added: "avr-ar"
+Command line alias added: "avr-as"
+Command line alias added: "avr-c++"
+Command line alias added: "avr-c++filt"
+Command line alias added: "avr-cpp"
+Command line alias added: "avr-gcc-14.1.0"
+Command line alias added: "avr-elfedit"
+Command line alias added: "avr-g++"
+Command line alias added: "avr-gcc-ar"
+Command line alias added: "avr-gcc-nm"
+Command line alias added: "avr-gcc-ranlib"
+Command line alias added: "avr-gcc"
+Command line alias added: "avr-gcov-dump"
+Command line alias added: "avr-gcov-tool"
+Command line alias added: "avr-gcov"
+Command line alias added: "avr-gdb"
+Command line alias added: "avr-gprof"
+Command line alias added: "avr-ld.bfd"
+Command line alias added: "avr-ld"
+Command line alias added: "avr-lto-dump"
+Command line alias added: "avr-nm"
+Command line alias added: "avr-objcopy"
+Command line alias added: "avr-objdump"
+Command line alias added: "avr-ranlib"
+Command line alias added: "avr-readelf"
+Command line alias added: "avr-run"
+Command line alias added: "avr-size"
+Command line alias added: "avr-strings"
+Command line alias added: "avr-strip"
+Command line alias added: "avrdude"
+Command line alias added: "make"
+Successfully installed
+
+Cool!
+With that out of the way let us check out the blinkLED_reg.c file(inside microcontroller folder) and see where to go to from there!
+
+{P.S: If you ever feel like something feels repetitive or feel that your code needs to be readable do not forget
+the fundamental data structures human kind has made to aid in your code. Functions, pointers, conditional blocks,
+structures,etc}
