@@ -1,0 +1,331 @@
+            ========================================
+                         Digital Input
+            ========================================
+Buttons,buttons, buttons....no matter what we do we just have that internal to push a button.
+And what better way to implement such a thing into your LED thingy! Its like the best human/MCU interaction ever!
+
+Considering for a small button you can find in a standard arduino kit, this can be represented as, if not all, types of
+DIGITAL inputs.
+            ========================================
+                    Pushbuttons, Switches, Etc
+            ========================================
+Before we can begin with the notion of using swithces and buttons as inputs... we need to consider some circuits!
+The AVR inputs are good at sensing voltages. In particulat, they are very good at sensing whether an applied voltage on a particular pin
+is higher or lower than half of the supply voltage. Your first task, then, would be to figure out how to apply logic high and low voltages
+to an AVR pin by way of a pusbutton.
+
+In electronics, switches and push buttons work based on toggling between two states: "on" and "off", usually in terms of different levels in
+voltages. For example, a 5V can be considerded HIGH and 0V as LOW. These are all fundamental to all systems, most especially keyboards.
+So when you press the button, the metal contacts inside the switch touch together to make a circuit.
+However, this is not direct contact, in the sense when pushed the the circuit it closed but rather a bounce happens(probably because there is a
+spring inside the button) and the circuit opens and shuts quickly before sticking. 
+[Removing electrical noise created by a mechanical switch while pressed or released]
+Because of this for the smallest amount of time possible
+whatever input you were trying to read is completely unpredictable since the state could've changed in that time interval. Where you AVR will
+probably read multiple false signals.
+
+To prevent this , switch debouncing techniques have been implemented using software or hardware techniques, so that when the button is pressed,
+the input properly registers that action!
+
+If you so desire there are a various amount of algorithms that filter out that tedious electrical noise. Where the programmer can design an algorithm
+with the use of shift registers and counters to allow the AVR to mark the state after a delay.
+{WE WILL IMPLEMENT THIS IN THE FUTURE FOR NOW WE WILL USE A SIMPLE CAPACITOR AND RESISTOR TO CLEAN THE NOISE!}
+Essentially, you make an RC circuit to act as a filter to smooth out the output glitch(resistor for lowering the energy and capacitor to store excess energy)
+for the switch.{Apparently there are dedicated Integrated Circuits for this....}
+                ==========================================
+                 Configuring Input: DDRs, PORTs, and PINS
+                ==========================================
+The same way you configured AVR pin outputs you can alos set the data direction registers to enable the pins as inputs. Only this it is a lot easier.
+Input is the default mode for the AVR chip. If you have not touched the DDR yet, you're already considerded in input mode.
+Otherwise, you can select input mode for a pin at any time by clearing the bits that correspond to your pins in the right DDR.
+
+Suppose you want to read the state of pin PD2, the pin that you have connected to your pushbutton. When the chip powers up, every pin is already in input mode,
+so all that remains is to enable the pull-up resistor. And to enable pull up, all you gotta do set the bit in the hardware special register.
+Let's say you want to enable the pull-up on PD2, you'd need to set the PORTD's corresponding bit high:
+DDRD &= ~(1<<PD2); //ensure bit is in input mode
+PORTD |= (1<<PD2); //enables pull-up resistor
+So as long as you enable the pull up in the corresponding bit you should be able to read input values coming from your buttons!
+So your PORT registers has two roles
+        1.Configuring for outputs
+        2.Configuring for pull-up resistors IF corresponding bit is an Input
+Now to access the bit, you have to similarly read out a byte from a hardware register and do the same bit twiddling.
+Using the PIND register.
+Let say you have reset the registers to inputs and pulled-up all the resistors for PORTD like so...
+        DDRD = 0x00; //hex decimal for zero ensures all bits are inputs
+        PORTD = 0xff //hex=1111 1111 all pins pull up enabled
+If you take a peek into PIND you would be able to see...
+        PIND: 11111111
+Cool..now say you push yout button grounding pin PD2. All the other bits in PIND stay the same, but because the button has much lower resistance than the internal
+pull-up resistor, the ground voltage win sand thus...
+        PIND:11111011
+
+Cool so how can we read the value without reading all the other bits?
+You can do so with the AND bitwise operation. Yielding one in the right spot if input is read and yielding a zero if nothing has been read yet.
+So say you are intrested in testing to see if bit 2 is set. You must create a bitmask like so...
+(1<<2) : 00000100
+then you can do the AND bitwise operation
+PIND   : xxxxxxxx
+(1<<2) : 00000100
+&      : 00000x00
+with that out of the way you can start implementing some if statements like so....
+        if(PIND & (1<<2)){//which if set should yield one
+                dostuff();
+        }
+So lets try that out!
+
+                ==========================================
+                                Serial I/O
+                ==========================================
+Cool now pushing buttons and seeing LEDs turn on is a nice thing on its own BUT.....we might just want to see this little thing communicate with other
+devices....like your laptop!
+We implment a simple UART(Universal Asynchronous Receiver Transceiver) communication transmission to your computer for interperting your button presses....but how 
+does this even work?
+How do computers even talk to each other?
+Well through something called Serial Communication. This is the process of sending over data(bytes) one bit at a time(typically through ONE wire), 
+SEQUENTIALLY(DIGITAL SYSTEMS!!) over a communication
+channel or computer BUS(multiple wires!). NOT TO GET CONFUSED WITH PARALLEL COMMUNICATION(basically usb vs parallel ports)
+
+These communication systems typically contained multiple ICs(logic gates/drivers/encoder/decoders/etc) that needed to communicate with one another on the same PCB.
+But if these ICs contained more pins for transmission it would cost the person a lot more money.
+Thus, to reduce the number of pins in a package, many ICs use a serial bus to transfer data when SPEED is not important.
+Which is typically why when you see a bunch of sensors or module components online for electronics they typically have the low-cost lower-speed serial buses like
+SPI, I2C, CAN bus. Whereas higher end serial buses include USB, SATA, and PCI Express!
+                ==========================================
+                        Serial Communication: UART
+                ==========================================
+Now to get to the pint. Basically put one side sends a signal by outputting high and low voltage pulses on a wire that connects it to the other devivce. The other side,
+in input mode, listens to the voltages on the wire.
+[Via a standard both devices must agree on the communication interface].
+The rules for encoding data into voltage pulses and decoding the voltage pulses back into data is called a serial protocol.
+
+In serial communication, typically one wire is used for transmitting the bits and the second wire can be used to receive but the amount of wires and implementation 
+completely depends on the application adn system 
+requirements at hand.
+By definiton, UART is a hardware communication protocol that uses asynchronous(no clock signal to syncrhonize the output bits from transmitting the device going to the 
+receiveing end) serial communication with configurable speed.
+
+A configuration will typically show something like this..."UART with data bus" where you get two signals
+        --Transmitter(Tx)
+        --Receiver(Rx)
+Think of 4 blocks. Two of on each side
+        -Data Bus block(Transmitter end/ Receiver End)
+        -UART block(Transmmitter end/ Receiver End)
+UART block gets input from the data bus block via parallel input and from there the UART block will transmit serially, bit by bit.
+Where the other end will have UART and data block of its own to receive.
+
+For UART and most serial communications, the baud rate needs to be set tthe same on both the transmitting and receving device. The baud rate is the rate at which
+information is transferred to a communication channel. In the serial port context, the set baud rate will serve as the maximum number of bits per second to be transferred.
+Basically, put since BOTH devices will be using their own personal internal clocks to determine a baud rate, BOTH devices need to be configured at the same baud rate. 
+Failure to do so may affect the timing of sending and receiving data that can cause discrepancies during data handling. The allowable difference is up to 10% before 
+the timing of bits gets too far.
+                ==========================================
+                        Data Transmission : UART
+                ==========================================
+In UART, the mode of transmission is in the form of a packet. The piece that connects the transmitter and reciever includes the creation of serial packets and controls 
+those physical hardware lines. A packet consists of a start bit, data frame, a parity bit, and stop bits(most of the images that I will show you come from 
+https://www.analog.com/en/resources/analog-dialogue/articles/uart-a-hardware-communication-protocol.html)
+        1.Start Bit: The UART data transmission line is normally held at a high voltage level, when it is NOT transmitting data. To start the transfer of data, the transmitting
+        UART pulls the transmission line from high to low for ONE clock cycle. When the receiving UART detects the high to low voltage transition, it begins reading the bits in
+        the data frame at the frequency of the baud rate.
+        
+        2.Data Frame: The data frame contains the actual data being transferred . It can be 5 bits to 8(however if you check the datasheet for the ATMEGA328P it can do from zero
+        to eight) bits long if a parity bit IS being used. If none, then data can go up to nine bits. In most cases, the data is sent with the least significant bit first.
+        
+        3.Parity: Parity Bit checker counts the amount of ones in the data frame. So if I have(00110110 as the data frame there are 4 1's in that number thus I shall return a 0
+        for my parity checker for there are even # of 1's)
+        Thus if the parity bit matches the data, the UART knows that the transmission was free of errors. BUT if the parity checker returns a 0 when then the total ones is odd,
+        or returns a 1 when the total 1's is even then the UART knows that bits in the data frame have been changed.
+
+        4.Stop Bits: To signal the end of the data packet, the sending UART drives the data transmission line from a low voltage to a high voltage for one or two bit(s) duration.
+
+Funny enough if you look at your datasheet for the ATMEGA328p you will quite literally see this word for word!(check out ATMEGA UART)
+                ==========================================
+                           UART CONFIGURATION
+                ==========================================
+Now here comees the fun part! We must initialize the USART(Universal Synchronous Asynchronous Receiver Transceiver){p.s if you do have time PLEASE read your datasheet! 
+go to the section USART0 it is VERY VERY HELPFUL!} so that we can begin the process of transmitting bits to other devices!
+So first things first: initialization of the USART.
+This process normally consists of setting the baud rate, setting frame formats and enabling the transmitter or the receiver through the appropriate registers(depending 
+on the usage). here is a somewhat formal way of doing so for the ATMEGA328P...
+***
+#include <avr/io.h>
+#include <util/setbaud.h> 
+#define BAUD 9600
+//function for initialization process of USART
+void initUSART(void){
+        UBRR0H = UBRRH_VALUE;
+        UBRR0L = UBRRL_VALUE;
+        UCSR0B = (1<<TXEN0)  | (1<<RXEN0);
+        UCSR0C = (1<<UCSZ01) | (1<<UCS700);
+}
+***
+Now to make any sense of this YOU HAVE TO READ YOUR DATASHEET!
+Go to USART0 Section: Register Description
+There you will have 5 registers for now we concern ourselves with registers....
+        --UBRRnL & UBBRnH[USART BAUD RATE Registers]
+        --UCSRnB [USART Control and Status Register B]<---controls your enabling and disabling pins for transmissions & receicver modes
+        --UCSRnC [USART Control and Status Register C]<--Controls Character size of your data format
+
+
+Let's start with the USART Baud Rate Register(UBRRnL and UBRRnH)
+If you look at the datasheet you'll see that the register is roughly 16 bits long
+        --Bits [15:12]-Reserved Bits: These bits are reserved for future use. For compatability with future devices, these bits MUST be
+        written to zero when UBRRnH is written
+        --Bits [11:0]-USART Baud Rate Register: This is a 12-bit register which contains the USART baud rate. The UBRRnH contains the
+        four most significant bits, and the UBRRnL contains the eight least significant btis of the USART baud rate. Ongoing transmissions
+        by the transmitter and receiver will be corrupted if the baud rate is changed. Writing UBRRnL will trigger an immediate update of
+        the baud rate prescaler.
+If you are ACTUALLY looking at your datasheet you should see various tables. These are examples of your UBRRn VALUES which yield an actual
+baud rate differing less than .5% from the target baud rate(there are differences in error percentage due to EACH devices internal clock
+and what they are running it at)
+The table shows you the Hz for the clock rate for standard crystal and resonantor frequencies and their associated UBRRn values.
+Now if you can catch on quick take a peek at the <util/setbaud.h> header file....you'll see the calculations have been done for you!
+All you have to do is 
+#define BAUD # 
+and voila and that header file does the rest!
+then it outputs the values UBRRH_VALUE & UBRRL_VALUE
+
+Now looking at the register UCRSnB[assuming entire register is at default value] toggling TXEN0 enables the USART transmitter. The
+transmitter will override normal port operation for the TxDN pin when enabled. The disabling of the transmitter will not become
+effictive until ongoing and pending transmissions are completed, when the transmit shift register and transmit buffer register do
+not contain data to be transmitted. The story is roughly the same for RXEN0
+Now why the zero?
+My theory is that there is more than one UCSRnB register hence the n in the name!
+So, UCSR0B,UCSR1B, UCSR2B,.....
+
+Now before we move on to the next register[UCSRnC] we need to take a look at UCSR0B specifically UCSZn2.
+This bit in part with the bits combined with UCSZn 1:0 sets the number of data bits(character size) in
+a frame the receiver and transmitter use.
+By default UCSn2 is set to 0
+
+Now we look at UCSRnC specifically UCSZn1 UCSZn0[combined with UCSZn2]....put them in order like so....
+***
+BIT VALUES
+UCSZn2 || UCSZn1 || UCSZn0 || Character Size
+   0        0         0          5-bit
+   0        0         1          6-bit
+   0        1         0          7-bit
+   0        1         1          8-bit
+   1        0         0          Reserved
+   1        0         1          Reserved
+   1        1         0          Reserved
+   1        1         1          9-bit
+
+   and currently UCSZn2 is 0
+   thus UCSR0C = (1<<UCSZ01) | (1<<UCS700); yields
+   011 = 8 character bit
+   Thus our UART format looks like this for now....
+   [Start Bit][8 Bit Character Data][Parity Bit][Stop Bit]
+
+
+COOL! We've intialized!
+Awesome now lets transmit a byte!
+***
+void transmitByte(uint8_t data){
+        loop_until_bit_is_set(UCSR0A,UDRE0);
+        UDR0 = data;
+}
+***
+Now this might look a little tricky but once again when in doubt CONSULT WITH THE  datasheet!
+REGISTERS
+        --UCSRnA [Control and Status Register A] <--- A register check checking to see if 
+        transmissions have been sent(as for receviers!)
+        --UDRn [USART I/O Data Register] <---holds the actual message in bytes!
+Taking a look at 
+loop_until_bit_is_set(UCSR0A, UDRE0);
+UCSR0A is our register of interest....UDRE0 is our bit of interest
+        --UDREn USART Data Register Empty: The UDREn flag indicates IF the transmit buffer UDRn(which is
+        where we'll keep the data bits in!) is READY to receive new data. If UDREn is one, the buffer is
+        empty and therefore ready to be written. The UDREn flag can generate a data register empty 
+        interrupt.
+        Basically it's your indicator to see if our buffer is empty and if it is we can run....
+     ***UDR0 = data;***
+
+        --UDRn USART I/O Data Register: The USART transmit data buffer register and USART recieve data
+        buffer registers share the same I/O address referred to as USART data register of UDRn. The
+        transmit data buffer register (TXB) will be the destination for data written to the UDRn register
+        location. Reading the UDRn register location will return the contents of the receive data buffer
+        register(RXB)
+        The transmit buffer can ONLY be written when the UDREn flag in UCSRnA register is SET.
+        Data written to the UDRn when the UDREn flag is NOT set, will be IGNORED by the USART 
+        transmitter. When data is written to the transmit buffer, and the transmitter is enabled, the 
+        transmitter will load the data into the transmit shift register when the shift register is empty.
+        Then the data will be serially transmitted on the TxDn pin!
+
+
+now all together it looks a little something like this...
+***
+#include <util/setbaud.h>
+#include <avr/io.h>
+#define BAUD 9600
+void initUSART(void){
+    UBRR0H = UBRRH_VALUE;
+    UBRR0L = UBRRL_VALUE;
+    UCSR0B = (1<< TXEN0) | (1<<RXEN0);
+    UCSR0C = (1<<UCSZ01) | (1<<UCSZ00);
+}
+void transmitByte(uint8_t data){
+    loop_until_bit_is_set(UCSR0A,UDRE0);
+    UDR0 = data;
+}
+***
+cool now for applications!
+                ==========================================
+                        Data Receiveing : UART
+                ==========================================
+Cool so we talked about data transmission via the Serial Protocol UART now time to talk about the notion of receving!
+Now when dealing with these scenarios it is always best practice to READ your REGISTERS because more often than not
+it will be these where your bit twiddling comes into play!
+And read their descriptions if you can....you'd be surprised by the information given!
+Assuming you did the initialization here is what a snippet function may look like for receiving bytes via UART.
+***
+#include <avr/io.h>
+#define BAUD 9600
+#include <util/setbaud.h>
+void initUSART(void){
+        UBRR0H = UBRRH_VALUE;
+        UBRR0L = UBRRL_VALUE;
+        UCSR0B = (1<<TXEN0) | (1<<RXEN0);
+        UCSR0C = (1<<UCSZ01) | (1<<UCSZ00);
+}
+uint8_t receiveByte(void){
+        loop_until_bit_is_set(UCSR0A,RXC0);
+        return UDR0;
+}
+***
+For the register UCSRnA and its associated bit....
+        --RXCn USART Receive Complete: This flag bit is set when there are unread data in the RECEIVE buffer and cleared
+        when the receive buffer is empty(does not contain any unread data). If the receiver is disabled, the receive
+        buffer will be flushed and consequently the RXCn bit will become zero. The RXCn flag can be used to generate a 
+        receive complete interrupt
+So, basically as you can see thanks to the interior of the MCU much of the hidden outcomes are all done with the registers
+or buffers inside the NANO.
+Here are some other helpful functions....
+***
+void printString(const char myString[]){
+        uint8_t i =0;
+        while(myString[i]){
+           transmitByte(myString[i]);
+           i++;
+        }
+}
+
+void printByte (uint8_t byte){
+        //converts a byte to a string of decimal text and sends it!
+        transmitByte('0' + (byte/100)); //hundreds
+        transmitByte('0' + ((byte/10)%10)); //tens
+        transmitByte('0' + (byte%10)); //ones
+}
+
+void printBinaryByte(uint8_t byte){
+        //prints out a byte as a series of 1's and 0'same
+        uint8_t bit;
+        for(bit=7; bit<225;bit--){
+                if(bit_is_set(byte,bit)){
+                        transmitByte('1');
+                }else{
+                        transmitByte('0');;
+                }
+        }
+}
+***

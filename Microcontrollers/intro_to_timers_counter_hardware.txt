@@ -95,3 +95,9 @@ in each mode. Here's a quick summary of the two options...
     --CTC Mode: In Clear Timer on Compare Match mode, the counter resets itself automatically when it reaches the value that is stored in the OCRnA register
     instead of waiting until it hits 255 or 65,535. So by writing to the output compare register, we control the frequency of the cycles.
     Configuring a pin to toggle, set or clear when a match occurs is a very common choice.
+
+                        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                                            WILL UPDATE IN THE FUTURE HOLD FOR NOW PLEASE!!!!
+                        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -20,22 +20,17 @@ int main(void) {
   while (1) {
 //===========Phase One==============//
     for (int i = 2; i < 8; i++) {
-        // led_byteD = onebitShifter(led_byteD, i);
         POVDisplayD(onebitShifter(i),FORWARD);
     }    
     for(int j=0;j < 2;j++){
-        // led_byteB = onebitShifter(led_byteB,j);
         POVDisplayB(onebitShifter(j),FORWARD);
     }
     _delay_ms(1000);
-
     for(int j = 1;j >=0;j--){
-        // led_byteB = onebitShifter(led_byteB,j);
         POVDisplayB(onebitShifter(j),BACKWARD);
     }
     for (int i = 7; i >= 2; i--) {
-      // led_byteD = onebitShifter(led_byteD, i);
-      POVDisplayD(onebitShifter(i),BACKWARD);
+        POVDisplayD(onebitShifter(i),BACKWARD);
     }
     _delay_ms(3000);
 //===========Phase One==============//

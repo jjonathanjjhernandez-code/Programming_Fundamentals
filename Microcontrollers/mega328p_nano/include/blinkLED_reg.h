@@ -17,11 +17,11 @@ void POVDisplayD(uint8_t oneByte, led_state ledstate) { // function to register 
   {
   case (FORWARD):
   PORTD  = PORTD | oneByte;
-  _delay_ms(50);  
+  _delay_ms(20);  
     break;
   case(BACKWARD):
-  PORTD = PORTD ^ oneByte;
-  _delay_ms(50);
+  PORTD = PORTD & ~(oneByte);
+  _delay_ms(20);
   break;
   }
 }
@@ -31,15 +31,28 @@ void POVDisplayB(uint8_t oneByte, led_state ledstate) { // function to register 
   {
   case (FORWARD):
   PORTB  = PORTB | oneByte;
-  _delay_ms(50);  
+  _delay_ms(20);  
     break;
   case(BACKWARD):
-  PORTB = PORTB ^ oneByte;
-  _delay_ms(50);
+  PORTB = PORTB & ~(oneByte);
+  _delay_ms(20);
   break;
   }
 }
 
+void POVDisplayC(uint8_t oneByte, led_state ledstate) { // function to register output value for portD/bit
+  switch (ledstate)
+  {
+  case (FORWARD):
+  PORTC  = PORTC | oneByte;
+  _delay_ms(20);  
+    break;
+  case(BACKWARD):
+  PORTC = PORTC & ~(oneByte);
+  _delay_ms(20);
+  break;
+  }
+}
 /*a << b
 --where a is the integer value to be shifted
 --b specifies how many positions to shift the bits*/
