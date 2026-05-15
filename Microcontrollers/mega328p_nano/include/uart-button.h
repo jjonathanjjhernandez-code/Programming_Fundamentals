@@ -6,9 +6,13 @@
 
 // intialization for USART
 void initUSART(void) {
+  //Calculating Baud_Rate
   UBRR0H = UBRRH_VALUE;
   UBRR0L = UBRRL_VALUE;
+  //Enabling Transmission and Reception
   UCSR0B = (1 << TXEN0) | (1 << RXEN0);
+  //8 Character Format bit fo USART Transmission
+  //[Start Bit][8 Bit Character Data][Parity Bit][Stop Bit]
   UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
 }
 // procedure to transmit the byte which can be translated to char!

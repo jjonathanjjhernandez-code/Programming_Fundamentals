@@ -1,0 +1,229 @@
+                ======================================
+                            Hardware Interrupts
+                ======================================
+Time to introduce the interrupt system.
+Up to now, our programs were relatively linear, going from one command to the next command to the next command(sequential).
+However, you often have to deal with input from the real world that arrives at asyncrhronously, almost at random - you want the
+AVR chip to respond when you press the button, not when it's ready to press the button(instantenous!).
+
+When you are writing code that runs on a multitasking operating system, you do not have to worry nearly as much about what happens
+when, or how long it takes
+The OS takes care of the nitty-gritty details like making sure that the video card os constantly fed with video data and that the mouse
+and keyboard are being constantly listened to.
+(You do not have to worry about it, because your OS is doing all this for you with its own operating system of hardware interrupts.)
+
+As for MCUs, that luxury is not applicable(however, you can implemnt a scheduler such as FreeRTOS to give tasks priorities!). Instead,
+if we'd like to have two things or more going seemingly at once, we either cycle between them very quickly or set up a system where one
+can preemptively interrupt the other.
+The first strategy, called "polling" can suffice for a lot of applications. The event loop in a polling-style program is essentially a
+list of things that we'd like to check up on.(Is a button pressed? If it is, light an LED)
+The AVR then runs through that list repeatedly as fast as it can.
+If we keep our event loop short enough that any given part comes around frequently enough,
+it is hard to tell that we are polling.
+
+One problem with polling in event loops is that there is no concept of priority.
+Even though we care more about the limti switches that control a laser than the light sensors, each separate check happens at the same
+frequency, once per trip through the event loop.
+That may work fine as long as the event loop is short enough. But if the doWhateverElse() routine takes a while, maybe because it uses a
+lot of CPU power, too much time can elapse between checks of the switches, your system might end up doing things you are not expecting it
+to.
+
+Handling multiple jobs at once is where interrupts excel. Interrupts do just what they sound like--they interrupt the normal flow of the 
+program. When an interrupt is triggered, all of the variables that you're using are stashed in memory and then a special function, called
+an interrupt service routine(ISRs) is run.
+After the ISR is done,your program picks up again where it left off. Switching from one context to another like this takes an AVR chips
+four cyyles(half a microsecond at 8 MHz) both going and returning, but otherwise the ISR happens about instantly when the interrupt is
+flagged.
+
+What are interrupts good for?
+Well to note there are two separate types at least to the ATmega328P chip....
+    --Internally Triggered Interrupts: These respond to the internal AVR hardware peripherals. For instance, there are interrupts that can
+    run ISR code when the analog-to-digital converter or USART has got new data or when the timer/counter peripheral has reached a certain
+    value. Instead of waiting in a blocking loop until the peripheral is ready, we can write our ISR to handle that peripheral directly,
+    and it will execuete only when REQUIRED. We will try to implement an example of internal interrupt.
+    
+    --Externally Triggered Interrupts: These react to a voltage change on any of the AVRs specifc INT1 or INT0 pins. Without interruprts, you
+    have to check each button in the system to see of it is pressed, which wastes some processor cycles and can result in serious delay if
+    parts of the event loop take a long time. By using interrupts for each AVR pin, you can dispatch code that execuetes within a 
+    microsecond of the button press.
+
+    From a coder's perspective, using interrupts judiciously can vastly streamling your work. For instance, when we wanted to test if a button
+    had just been pressed, we had to store the old button state in a variable and check each time around the event loop to see if the current
+    state is different from the old state.
+    Then replace the old state with the current one. By using interrupts, we can configure the interrupt routines to only fire when a pin 
+    changes state.
+    It just takes a bit of acustoming to....if you want the AVR to be doing one or two main things, the AVR can be ready to drop thos tasks for
+    a third task for a while it it needs to react to a change coming in from the outside world.
+                ======================================
+                    Hardware Interrupts: Examples
+                ======================================
+
+Lets look at a simple coding piece..
+***
+#include <avr/io.h>
+#include <util/delay.h>
+#include < avr/interrupt.h>
+#include "pinDefines.h"
+ISR(INT0_vect){
+    if(bit_is_set(BUTTON_PIN,BUTTON)){
+        LED_PORT |= (1<<LED1);
+    }else{
+        LED_PORT &= ~(1<< LED1);
+    }
+}
+void initInterrupt0(void){
+    EIMSK |= (1<<INT0);
+    EICRA |= (1<<ISC00);
+    sei();
+}
+int main(void){
+    //Inits
+    LED_DDR = 0xff;
+    BUTTON_PORT |= (1<<BUTTON);
+    initInterrupt0();
+    //Event Loop
+    while(1){
+        _delay_ms(200);
+        LED_PORT ^= (1<<LED0);
+    }
+    return 0;
+}
+***
+[ISR Function]
+ISRs are different from normal function in two important ways, however ISR() "functions" do not have a return value, and they take only their
+interrupt vector as an argument.
+This means you can not pass variables to the ISR directly and have to use variables with global scope to get data in and out of the ISR. For
+now, just remember that an ISR is a special type of macro/function hybrid that has neither arguments(except interrupt vectors) nor return values.
+
+++ 
+ISR(INT0_vect){
+    if(bit_is_set(BUTTON_PIN,BUTTON)){
+        LED_PORT |= (1<<LED1);
+    }else{
+        LED_PORT &= ~(1<< LED1);
+    }
+}
+++
+You are conducting a simple LED but essentially you can put any type of functionality as long it's short and sweet.
+++      EIMSK |= (1<<INT0);     ++
+{Register EIMSK-External Interrupt Mask Register}
+[Bit 0- INT0: External Interrupt Request 0 Enable]
+When the INT0 bit set(one) and the I-bit in the status Register(SREG from the CPU) is set(one), the external pin interrupt is enabled.
+The interrupt sense control0 bits 1/0(ISC01 and ISC00) in the external interrupt control register A(EICRA) define whether the external interrupt is
+activated on rising and/or falling edge of the INT0 PIN(look at the pin configuration piece on the datasheet!) or level sensed.
+Activity on the pin will cause an interrupt request even if INT0 is configured as an output.
+The corresponding interrupt of external interrupt requedt 0 is execueted from the INT0 interrupt vector.
+++      EICRA |= (1<<ISC00);        ++
+{EICRA-External Interrupt Control Register A}
+[Bit 1,0-ISC01,ISC00: Interrupt Sense Control 0 Bit 1 and Bit 0]
+The external interrupt 0 is activated by the external pin INT0 if the SREG I-flag and the corresponding interrupt mask are set.
+Here are the following sense control options based on the register configuration!
+|   ISC01   |   ISC00   |   Description   |
+      0          0           The low level of the INT0 generates an interrupt request.
+      0          1           Any logical change on INT0 generates an interrupt request.
+      1          0           The falling edge of INT0 generates an interrupt request.
+      1          1           The rising edge of INT0 generates an interrupt request.
+Basically the configuration is 01 thus "Any logical change on INT0 generates an interrupt request"
+++      sei();      ++
+Description: Sets the Global Interrupt Flag(I) in SREG(status register from the CPU). The instruction following SEI will be execute before
+any pending interrupts.
+{P.S there is also CLI-Clear Global Interrupt Flag!
+Description: Clears the Global Interrupt Flag(I) in SREG(status register). The interrupts will be immediately disabled. No interrupt will be execueted after
+the CLI instruction, even if it simultaneously with the CLI intstruction.}
+++
+    LED_DDR = 0xff;  //all LEDs active
+    BUTTON_PORT |= (1<<BUTTON);  //pullup resistor
+    initInterrupt0();
+++
+Configuration and Initialization
+++
+        _delay_ms(200);
+        LED_PORT ^= (1<<LED0);
+++
+Run loop infinitely and as we mentioned if ANY Voltage CHANGES in that pin your configured(should be PC2...) run the ISR function whatever happens..happens
+so main loop just toggles the LEDs accordingly!
+
++++{Interrupts: A small under the hood}+++
+The interrupt system is a little bit involved at the hardware level, but it is not magic, and knowing how it works may someday help you track down interrupt 
+related bugs.
+Like everything else in the AVR, it is all done with bits in registers. For each type of possible interrupt, there is a flag bit inside the AVR that can be set. 
+When you press the button, the INT0 interrupt flag is set. There is also a global interrupt-enable bit that determines whether or not any interrupts are checked.
+
+When the global flag is set, the AVR continually checks all of the interrupt flags to see if any of them are ste. If one or more of the individual interrupt flags
+is set, the global interrupt-enable flag is first cleared, preventing any further interrupts, and then the system runs the ISR corresponding to the first individual
+flag it finds.
+When the first ISR is done, the system sets the global interrupt-enable flag again, and control either goes to the next ISR with a set flag or back to your main
+program where it left off.
+The ordering of the individual interrupt flags thus provides a priority scheme for execueting the ISRs(there should be a table of the different interrupt vectors 
+and their associated sources).
+
+How does the interrupt mechanism know which section of code to run? At the very beginning of the machine-language version of your code lies in the interrupt vector
+space. Each entry in this space contains a command to jump to the memory location where the corresponding ISR code will be stored.
+When the CPU gets a USART_RX interrrupt, for instance, signaling that some data has come in over the USART, the USART_RX interrupt flag is set.
+Because this flag is the 18th flag in the interrupt table, the 18th entry in the interrupt vector table is read out.
+The data stored in the 18th slot of this table is the memory location where the ISR routine's function starts.
+In short, when an interrupt flag is thrown, the CPU drops what it is doing, disables further interrupts bu turning off the global interupt bit, looks up the 
+corresponding memory address - which is set to the the beginning of your ISR. Each ISR then ends with RETI("return from interrupt") command, which tells the CPU to
+turn the global interrupt flag back on, to recheck the interrupt flags register, and if none are set, to return to your code where it left off.
+
+If, while it was handling your first interrupt request, another interrupt flag has been set, the CPU handles the new interrupt before getting back to your main() routine.
+What does this all mean for you as a programmer?
+Because the individual interrupt flags are prioritized, they will reliably be run in the same order.
+Think about this when designing your hardware layout, and physically connect the most important signals to the most important interrupt pins.
+Additionally, the individual interrupt flags can be set even when the global flag is not.
+Later on, when the global interrupt enable flag is set, they all get processed in the normal priority order.
+Because interrupts are handled one after the other, if your interrupt flags keep getting set very frequently, execuetion may take a while before it can get back to your
+main routine. And finally, because the individual interrupt flags are just like any other flag in a hardware register, you can trigger them from within your code if you
+ever need to simulate a button press or whatever!
+    ++++
+
+
+Now if you take a peek at interrupt-vectors table on your datasheet or the pic i provided(from datasheet) you will see that INT0 and INT1 interrupts are special(in 
+fact they are given 2nd best priorty based on table). If you would like to use any of the other pins to generate an interrupt, you will have to use a pin-chanfe interrupt.
+Initialization of pin-change interrupts is tiny bit different, but the main difference is that there are only three pin-change interrupt flags,
+and each one stand for up to eight physical pins on the AVR.
+In order to select which of the eight pins in each bank you would like to trigger the interrupt, you will need to set up a pin mask:
+|    PIN PORTS    |    Vector Name for ISRs    |    Which pins are covered    |
+   PCINT0              PCINT0_vect                    PB0....PB7
+   PCINT1              PCINT1_vect                    PC0....PC6
+   PCINT2              PCINT2_vect                    PD01...PD7
+
+So once again here is an example code...
+***
+ISR(PCINT2_vect){
+    ......some functionality......
+}
+void initPinChangeInterrupt(void){
+    PCIR |= (1<<PCIE2);
+    PCMSK2 |= (1<<PCINT18); //equivalenet to PD2<---to double check check out the pin configs!
+    sei();
+}
+***
+++      PCIR |= (1<<PCIE2)      ++
+{PCICR-Pin Change Interrupt Control Register}
+[Bit 2-PCIE2: Pin change interrupt Enable 2]
+When the PCIE2 bit is set(one) and the I-bit in the status register(SREG) is set(one), pin change interrupt 2 is enabled. Any change on any enabled PCINT23...16 pin will 
+cause an interrupt. The corresponding interrupt of pin change interrupt request is execueted from the PCI2 interrupt vector. PCINT23...16 pins are enabled individually by
+the PCMSK2 register.
+++      PCMSK2 |= (1<<PCINT18);     ++
+{PCMSK2-Pin Change Mask Register 2}
+[Bit 7...0-PCINT23...16: Pin Change Enable Mask 23....16]
+Each PCINT23...16 bit selects whether pin change interrupt is enabled on the corresponding I/O pin. If PCINT23...16 is set and the PCIE2 bit in PCICR is set, pin change
+interrupt is enabled on the corresponding I/O pin. If PCINT23...16 is cleared, pin change interrupt on the corresponding I/O pin is disabled.
+{P.S if you need a visual of the PCINT and their associated pin configs!}
+
+[Pin-Change Interrupts Guideline]
+Using pin-change interrupts allows your code to respond instantaneously to a voltage change on any or all(!) AVR pins.
+Just remember the three-tiered system for configuring pin-change interrupts and you will be set.
+    1.Enable your specific interrupt in the control register: ex) PCIR |= (1<<PCIEx)
+    2.Set which pins you'd like to react to in the appropriate pin-mask register: ex) PCMSKx |= (1<<PCINTyy)
+    3.Enable interrupts globally with sei() when you are ready.
+
+Now write the code that you would like to run using the ISR(PCINTx_vect) macro:
+    1.If you are triggering off multiple pins in the same bank, you will want to test which pin just caused the interrupt in your ISR with somethign like
+    bit_is_clear(BUTTON_IN, BUTTON)<---need to explore this more....
+    2.Even if you are triggering on only one pin in the bank remember that pin-change interrupts trigger on any pin change. If you care whether the change is a press or release,
+    you will need to test for that.
+                ======================================
+                        Global, Volatile Variables
+                ======================================
