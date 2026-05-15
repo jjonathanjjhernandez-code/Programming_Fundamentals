@@ -1,4 +1,5 @@
 #include "uart-button.h"
+#include <stdio.h>
 int main(void) {
   DDRB |= (1 << PB5);  // setting LED output for PB5
   PORTC |= (1 << PC5); // enabling pull up resistor
@@ -6,7 +7,8 @@ int main(void) {
   bool ledon = false;
   bool bossbutton = true;
   initUSART(); // NEW STUFF!
-  transmitByte('0');
+  transmitByte('0');  
+
   while (1) {
     if (!(PINC & (1 << PC5))) {//pin input checkup
       ledon = !ledon;

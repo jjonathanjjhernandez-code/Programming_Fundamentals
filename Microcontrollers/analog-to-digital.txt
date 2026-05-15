@@ -1,0 +1,282 @@
+                ==========================================
+                        Analog-to-Digital Conversion
+                ==========================================
+Now time to connect the real world to the digital. Using our trusty analog-to-digital converter(ADC)
+hardware. Using the builtin ADC, we'll see how to use the AVR to take(voltage) readings from Analog
+sensors and turn them into numbers that we can use inside our code.
+
+But what the heck is an Analog-to-Digital Converter?
+Simply put it transforms actual analog signals from the real world into digital data that computers and digital systems allows us to understand,
+alter, and utilize these signals in ways that were previously considerded to be impossible.
+
+Signal values such as temperature,pressure, voltage,current,distance, or light intensity can now be digitally represented. Then that representation can be processed,
+manipulated, computed, transmitted or stored.
+In many cases, the analog to digital conversion process is just one step within a larger measurement and control loop where digitzed data is processed and Then
+reconverted back to analog signals to drive external transducers. These transducers can include motors, heaters, or even loudspeakers. The performance REQUIRED 
+of the ADC will reflect the performance goals of the measurement and control loop. ADC performance needs will also reflect the capabilities and requirements of the
+other signal processing elements in the loop.
+
+Now as far as classifications go there are couple to keep in mind of. You see speed and accuracy are two crictal measures of ADC performance. Within the broad 
+categories of having converters with 8-14 bit resoultion and conversion rates below 10 Msamples/s are typically considerded general purpose ADCs.
+There are other architectures such as flash,pipelined, successive approximation -register, and sigma delta. Each architecture offers certain advantages with respect
+to conversion speed, accuracy, and other parameters.[DO NOT FORGET THAT THESE ARE ACTUAL ICS!!]
+                ==========================================
+                            ADC Hardware Overview
+                ==========================================
+
+The Analog-to-Digital Converter(ADC) is a system that converts an analog signal(VIN) into a digital signal. The analog signal is typically a voltage that gets represented into a digital
+equivalent number in COMPARISON with a reference voltage(VREF).
+It samples the input analog value and produces an output digital code for each sample measured. Analog signal can be anything ranging from microphone's output to camera's pixel output.
+For further processing of any such voltage signal, it is necessary to convert them into te digital system using the ADC.
+
+ADC converts a continous-time and continous-amplitude analog signal to a discrete-time and discrete-amplitude digital signal which is usually represented by 0s and 1s.
+The conversion involves quantization of the input, so it necessarily introduces a small amount of error or noise.
+
+These conversions are conducted periodically, sampling the input in discrete amount of times, limiting the allowable bandwidth of the input signal[steps].
+There is always a loss of data when we convert an analog signal to a digital signal. We can reduce this loss by using a high resolution and high sampling rate ADC, but that increases the cost
+of such an IC.
+So since infinite sampling would need to be conducted for an infinite signal...which is impossible thus to mitigate this the Nyquist-Shannon sampling theorem is used and the sampling rate is
+selected(not infinite!).
+Based on the system requirement and application it is decided which ADC will be used, where in some cases software algorithms are used to filter out quantization errors and noise.
+                ==========================================
+                                ADC Properties
+                ==========================================
+[Reference Voltage VREF]
+        --The VREF is the standard voltage against which the analog input voltage is measured. VREF can be an input voltage provided throuhg an external pin in the ADC or MCU. Some ADCs are 
+        capable of generating VREF for the ADC module using special circuitry. The range of VREF varies among different devices and the respective device datasheet must be referred to the exact
+        value. Typically, VREF van be selected by configuring the bit field of the corresponding configuration register.
+        This VREF will prove useful in the case of the AVR chip since it has a comparator within itself that conducts a piece of the Nyquist-Shannon sampling.
+[Analog Input Voltage VIN]
+        --This the voltage measured and converted into a digital value[typically read from a device that outputs analog values to an ADC pin!].
+        The input voltage should always be less than VREF to avoid saturation of the ADC. ADC modules can be classified based on the number of Analog Inputs used for a single conversion as follows....
+        1.Single-Ended Input: ADC sampling and conversion are performed only on one analog input signal with respect to GND and VREF
+        
+        2.Differential Input: Here the difference in voltage of TWO analog inputs is applied to the ADC module.
+        When using the differential mode, the offset error can be measured by setting up the positive and negative input on the same pin and the offset can be measured directly as the ADC does
+        not require the ground(GND) leve as the reference. 
+        ex) if AIN1 = 2.5V & AIN2 = 0.5V then AIN = (AIN1-AIN2)=2V and then you use that to compare with VREF
+[Resolution]
+        --The entire input voltage range(0V to VREF) is divided into a number of sub-ranges called steps. Each step is assigned a single output digital code. The number of steps is usally in powers
+        of two. Here, n is called the Resolution of the ADC and the 2^n provides the step count. For a specific VREF, the step size is determined by the resolution(VREF/2^n).
+        Here n also represents the number of bits in the digital output of the ADC.
+        ex)
+        Resoultion = 8 bits
+        VREF = 5V
+        # of Steps = 256
+        Step Size = 19.53125mV(5/256)
+        Output of ADC is 00000000 when VIN = 0V and 11111111 when VIN = 5V
+
+        A particular resolution determines the magnitude of the quantization error and therefore determines the maximum possible signal-to-noise-ratio for an ideal ADC.
+[Quantization]
+        --Quantization is the process where the sampled analog input voltage will be replaced with an approximation from a finite set of discrete values. It is also called rounding.
+        Remember our goal is to produce the ADC value assuming with a resolution of 8 bits.
+        Thus, to determine our LSB(LEast significant bit) our input analog value needs to be within ranges of step sizes...
+        ex)
+        Assuming VREF = 5V and Resolution= 8 bits we will 256 steps
+        Step 1 Range: (0,19.53125mV) = 00000000
+        Step 2 Range: (20.53125mV,39.0625mV) = 00000001
+        So if we were to get an analog input value like 21.5mV then we get 00000001
+
+        Now there are two types of quantization....
+                1.Unadjusted/Uncompensated Quantization: The first step is taken at 1LSB, with each successive step taken at 1LSB intervals and the last step taken at VREFH-1LSB. The quantization 
+                error(EQ) in this case is from 0LSB to 1LSB
+                2.Adjusted/0.5LSB Compensated Quantization: The first step is taken at 0.5LSB, with each successive step taken at 1LSB intervals and the last step taken at VREFH-1.5LSB. The
+                quantization error(EQ) in this case is +-0.5LSB
+[Quantization Error]
+        --Quantization Error is introduced by the quantization in an ADC. It is a rounding error between the analog input voltage to the ADC and the output digitzed value.
+        The error is nonlinear and signal dependent.
+        As the input is a continuous-time and contin-amplitude signal whereas the output only represents some set voltage values. All the voltage levels in between the set values are rounded off and
+        thus introduces quantization error.
+                ==========================================
+                             ADC Transfer Curves
+                ==========================================
+[Ideal ADC]
+        --When the resolution of a specific ADC is infinite, we got ourselves an ideal ADC. Basically, the output code is lined up with the Analog input.
+        If you were to map out the values to one another it would be a linear line.
+[Perfect ADC]
+        --But as we know generating continous output values is not possible so our output values are n bit numbers.
+        Which with respect to the linear line from before will have a "staircase" of steps each one representing one LSB.
+        ex)
+        Assume VREF = 2V   Resolution = 3 bits  Step size:250mV
+        Range 1:(0,250mV) = 000
+        Range 2:(251mV,500mV) = 001 and so on....
+        The graph in "Perfect-ADC-Unadjusted-Quantization" demonstrates the quantization steps!
+
+        Now as the input voltage rises from 0V, the quantization error also rises from 0LSB and reaches a maximum quantization error of 1LSB at 250mV.
+        Again, the quantization error increases from 0 to 1LSB as the input rises from 251mV to 500mV
+        To account for this, we can reduce the error by +-0.5LSB by shifting the transfer function towards the left through 0.5LSB
+        After adjusting teh quantization the ranges are....
+        Range 1:(0,125mV) = 000
+        Range 2:(126mV,375mV) = 001
+                ==========================================
+                     Successive Approximation ADC(SAR)
+                ==========================================
+Uses a binary search algorithm to find the digital code closest to the input voltage.
+Components:
+        --DAC(internal)
+        --Comparator
+        --SAR Register(shift register with control logic)
+        --Sample-and-Hold Circuit
+  SAR ADC block diagram
+
+  Vin ──→[S/H]──→(+)─┐ ____________
+                      │ Comparator |
+  Vref ──→[DAC]──→(-)─┘------------
+              ▲           │
+              │       ┌───┴────┐
+              │       │  SAR   │
+              └───────┤Control │
+                      │Register│
+                      └───┬────┘
+                          │
+                     Digital Output
+                      (n-bit code)
+
+  S/H = sample and hold
+  SAR = successive approximation register
+[Process for a 4-bit SAR ADC]
+  1.Sample and Hold: The input voltage is captured and held steady on a capacitor
+  2.Bit 3(MSB) test: Set the DAC to 1000(half of 1111). Compare the DAC value to the analog input.
+  Is the analog input greater than DAC output? If yes,, keep bit 3 as 1. If no, set bit 3 as 0
+  3.Bit 2 Test: Set the DAC to current result+0100(quarter of 1111). Compare and keep or clear bit 2
+  4.Bit 1 Test: Set the DA to the current result +0010. Compare and keep or clear bit 1
+  5.Bit 0(LSB) Test: Set the DAC to the current result+0001. Comapre and keep or clear bit 0
+  6.Result: The 4 bit code in the SAR register is the closest digital representation of the input voltage
+  given by the analog input signal!
+{As far as an AVR chip especially the ATmega328P it has a 10-bit DAC!}
+ex) Converting 2.1V with a 4-bit ADC, with a 3.3V reference(step size of 3.3/(2^4)=.20625)
+
+Step ||  Test Value  ||  DAC Voltage  ||  Compare  ||  Bit Value  ||  SAR Register  ||
+1         1000(8)           1.65V        2.1>1.65         1              1000
+2         1100(12)          2.475V       2.1>2.475        0              1000
+3         1010(10)          2.0625       2.1>2.0625       1              1010
+4         1011(11)          2.269        2.1>2.269        0              1010
+
+Result: 1010(10)....so best possible with this 4 bit ADC is 2.0625 voltage reading.
+The error is 2.1-2.0625 = .0375V, which is less than one LSB(3.3/16=.206V)
+                ==========================================
+                                   WHy SAR?
+                ==========================================
+A 12-bit SAR ADC needs exactly 12 comparasion cycles to produce a result. At a typical 14MHz ADC clock(STM32F103), each conversion takes about 1 microsecond. This is
+fast enough for most sensor applications while using relatively little silicon area and power.
+ADC Type   ||     Speed     ||   Resolution   ||   Power   ||   Used in   ||
+SAR           Medium(1-5MSPS)    8-18 bits        LOW         Most MCUs(STM32,ATmega,ESP32)
+Delta-Sigma   Slow(10-1000SPS)   16-24 bits       LOW        Precesion measurement,audio
+Flash       Very Fast(100+MSPS)  4-8bits          HIGH       Video, radar, oscilloscopes
+Pipeline    Fast(10-100MSPS)     10-16 bits       MEDIUM     Communications, imaging
+                ==========================================
+                            The Sampling Theorem
+                ==========================================
+The Nyquist-Shannon sampling theorem states:
+**
+        To accurately reconstruct a signal(a continous one that is), you must sample at a rate at least twice the highest frequency present in the signal.
+**
+f[sample] >= 2*f[max]
+Where 2*f[max] is known as the Nyquist Rate.
+[Why does this matter?]
+If you sample too slowly, high-frequency components in the signal fold back as lower frequencies, a phenomenon called aliasing. The aliased signal looks real but is an
+artifact of insufficient sampling.
+ex) You are measuring a 50Hz power line signal
+        --Sampling at 200Hz: well above Nyquist Rate(2*50 =100 Hz). Signal reconstructed accurately
+        --Sampling at 80 Hz: below Nyquist. The 50 Hz aliases to appear as a 30Hz signal (80-50=30Hz). Measurment shows wrong frequency
+[Anti-Aliasing Filter]
+Before the ADC, an analog low-pass filter removes frequencies above fsample/2. This prevents aliasing. A simple RC filter works for many embedded applications.
+f[cutoff] = 1/(2piRC)
+ex) For a 1kHz ADC sample rate, the anti-aliasing filter should cut off below 500Hz. Basically snubbing out unwanted frequencies!
+With a 10k resistor thus solving for C = 1/(2pi(10k)) = 32nF. Thus 33nF cap. should work!
+                ==========================================
+                          ATMega328P ADC Registers
+                ==========================================
+The ATmega328P features a 10-bit sucessive approximation ADC. The ADC is connected to an 8-channel Analog Multiplexer which allows right single-ended voltage inputs
+constructed from the pins of Port A. The single-ended voltage inputs refer to 0V(GND).
+
+The ADC uses registers ADMUX, ADCSRA, ADCL, ADCH, ADCSRB, and DIDR0 to configure the hardware and to do analog to digital conversion. Along with register configuration,
+ADC hardware also needs a separate analog supply voltage pin, AVCC. In which case AVCC must not differ more thaa=n+-0.3V from VCC.
+Internal reference voltages can be set at 1.1V or AVCC. When the voltage reference is selected externally the AREF pin is connected with a capacitor for better noise 
+performance.
+Here is an example code for a Cadmiun-Sulfide Light Sensor
+***
+#include <avr/io.h>
+#include <util/delay.h>
+static inline void initADC0(void){
+        ADMUX |= (1<<REFS0);
+        ADCSRA |= (1<<ADPS1) | (1<<ADPS0);
+        ADCSRA |= (1<<ADEN);
+}
+int main(void){
+        uint16_t acdValue;
+        initADC0();
+        while(1){
+                ADCSRA |= (1<<ADSC);
+                loop_until_bit_is_set(ADCSRA,ADSC);
+                adcValue = ADC;
+                _delay_ms(50);
+        }
+        return 0;
+}
+***
+Okay so let us look at this piece by piece....
+++        ADMUX |= (1<<REFS0);          ++
+{Register ADMUX-ADC Multiplexer Selection Register}
+Bit 7:6-REFS1:0: Reference Selection bits
+These bits select the voltage reference for the ADC based on this table...
+REFS1   ||   REFS0   ||   Voltage Reference  Selection
+  0            0         AREF, internal VREF turned off
+  0            1         AVCC with external capacitor at AREF pin
+  1            0         Reserved
+  1            1         Internal 1.1V voltage reference with external capacitor at AREF pin
+[We chose 01 thus we get AVCC wit external capacitor at AREF pin]
+If these bits are changed during a conversion, the change will not go in effect until this conversion is complete
+(Bit ADIF in Register ADCSRA is set). The internal voltage reference options may not be used IF an external reference voltage is being
+applied to the AREF pin.
+++        ADCSRA |= (1<<ADPS1) | (1<<ADPS0);            ++
+{Register ADCSRA-ADC Control and Status Register A}
+Bits2:0-ADPS2:0: ADC Prescaler Select Bits
+These bits determine the division factor between the system clock frequency and the input clock to the ADC
+ADPS2    ||    ADPS1    ||    ADPS0    ||    Division Factor    ||    {Clock Source MUX!}
+  0              0              0                  2
+  0              0              1                  2
+  0              1              0                  4
+  0              1              1                  8
+  1              0              0                  16
+  1              0              1                  32
+  1              1              0                  64
+  1              1              1                  128
+A 2MHz clock source???
+[Prescaling and Conversion Timing]
+By default, the successive approximation circuitry requires an input clock frequency  between 50kHz and 200kHz to get maximum resolution. If a
+lower resolution than 10 bits is needed, the input clock frequency to the ADC can be higher than 200kHz to get a higher sample rate.
+The ADC module contains a prescaler, which which generates an acceptable ADC clock frequency from any CPU frequency above 100kHz.
+The prescaling is set by the ADPS[2-0] bits in ADCSRA. 
+The prescaler starts counting from the moment the ADC is switched on by setting the ADEN bit in the ADCSRA.
+The prescaler keeps running for as long as the ADEN bit is set, and is continously reset when ADEN is low.
+++         ADCSRA |= (1<<ADEN);         ++
+{Register ADCSRA-ADC Control and Status Register A}
+Bit 7-ADEN: ADC Enable
+Writing this bit to one enables the ADC. By writing it to zero, the ADC is turned off. Turning off the ADC off while a conversion is in progress, will
+terminate this conversion
+
+Once the ADC is initialized.........
+++            ADCSRA |= (1<<ADSC);          ++
+{Register ADCSRA-ADC Control and Status Register A}
+Bit 6-ADSC: ADC Start Conversion
+In single conversion mode, write this bit to one to start each conversion. In free running mode, write this bit to one to start first conversion.
+The first conversion after ADSC has been written after the ADC has been enabled, or if ADSC is written at the same time as the ADC is enabled, will take
+25 ADC clock cycles instead of the normal 13. This forst conversion performs the initialization of the ADC
+{P.S if interested you could if you'd want trigger the Bit 5-ADATE: ADC Auto trigger Enable
+When this bit is written to one, auto triggering of the ADC is enabled. The ADC will start a conversion on a positive edge of the selected trigger signal.
+The trigger source is selected by setting the ADC trigger select bits, ADTS in the Refgister ADCSRB}
+++              loop_until_bit_is_set(ADCSRA,ADSC);             ++
+Assuming ADC is in single conversion mode....you are basically waiting until the conversion is complete to get the end result of the ADC which yields....
+++              adcValue = ADC;               ++
+{Register ADCL and ADCH – The ADC Data Register}
+Holds the 16-bit value for the output of the ADC
+However, the <avr/io.h> made it simple for combining both register outputs as a 16-bit output
+equivalent to ADCL | (ADCH << 8)
+Just remember to read ADCL first, then ADCH the hardware locks ADCH until ADCL is read, to prevent data tearing. The ADC macro handles this ordering for you 
+automatically.
+And that is pretty much it....
+So as long as you placed whatever analog signal to the appropriate pin you should be fine as the AVR chip will read what is there once enabled!
+
+However....we might want to step up with this!
+Since we are trying to make a custom RC controller for the RC Car!!!!

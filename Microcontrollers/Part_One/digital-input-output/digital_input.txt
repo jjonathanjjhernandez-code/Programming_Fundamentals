@@ -30,6 +30,14 @@ the input properly registers that action!
 If you so desire there are a various amount of algorithms that filter out that tedious electrical noise. Where the programmer can design an algorithm
 with the use of shift registers and counters to allow the AVR to mark the state after a delay.
 {WE WILL IMPLEMENT THIS IN THE FUTURE FOR NOW WE WILL USE A SIMPLE CAPACITOR AND RESISTOR TO CLEAN THE NOISE!}
+
+For the simple implementation of using a switch-debounce circuit...
+        --Pullup Resistor: 10k
+        --RC Filter: Resistor:1k   Capacitor:.1uF
+        --Vout: MCU Pin{will read state of button}
+As for the pinouts of the tactile button basically put if you place the button in the middle of the breadboard you will see that either side is connected with one another!
+[https://wiki.elegoo.com/oshw-getting-started-kits/digital-2]
+
 Essentially, you make an RC circuit to act as a filter to smooth out the output glitch(resistor for lowering the energy and capacitor to store excess energy)
 for the switch.{Apparently there are dedicated Integrated Circuits for this....}
                 ==========================================
@@ -269,6 +277,8 @@ void transmitByte(uint8_t data){
     UDR0 = data;
 }
 ***
+{P.S the loop is necessary mainly for the fact that both USART transmit data buffer register and USART receive data buffer registers share
+the SAME I/O address referred to as USART data register UDRn}
 cool now for applications!
                 ==========================================
                         Data Receiveing : UART
@@ -327,5 +337,551 @@ void printBinaryByte(uint8_t byte){
                         transmitByte('0');;
                 }
         }
+}
+***
+                ==========================================
+                               Miscallenous
+                ==========================================
+****
+void transmitByte(uint8_t data){
+    loop_until_bit_is_set(UCSR0A,UDRE0);
+    UDR0 = data;
+}
+****
+
+This is just me going more in depth of the USART of the AVR chip!
+***
+//Transmimtting a character
+void UART_transmit_char(unsigned char data)
+{
+    // wait for transmit buffer to be empty
+    while(!(UCSR0A & (1 >> UDRE0))); <---is probably the equivalent of using....
+    //    loop_until_bit_is_set(UCSR0A,UDRE0);
+
+    // load data into transmit register
+    UDR0 = data;
+}
+
+//Transmitting a String
+void UART_transmit_string(char * string){
+        while(*s > 0) UART_transmit_char(*s++);
+//ex) char * ex_string = "abc"; <--inherently all string carry the null character '\0'
+}
+**Notions of bytes and what not seem to pop up A LOT!...So a little recap...
+A byte is a unit of data-specifically 8 bits(e.g 10110100). It can hold values from 0 to 255.
+A byte isn't INHERENTLY decimal or hex--it is just a chunk of memory.
+You can express that chunk in different number systems
+Byte            Decimal         Hex
+00000000        0               0x00
+00001111        15              0x0F
+11111111        255             0xFF
+**
+
+//Transmitting Hex values
+void UART_transmit_hex(uint8_t data_byte){
+        uint8_t upperNibble = (data_byte & 0xF0) >> 4; 
+        uint8_t lowerNibble = (data_byte & 0x0F);
+
+        //conversion
+        upperNibble += upperNibble > 9 ? 'A'- 10 :  '0';
+        lowerNibble += lowerNibble > 9 ? 'A'- 10 : '0';
+
+        //Printing the characters
+        UART_transmit_char(upperNibble);
+        UART_transmit_char(lowerNibble);
+}
+**Realize that 0xF0 = 11110000 thus for example say data_byte=10110110
+thus
+uint8_t upperNibble = (data_byte & 0xF0) >> 4; yields 1011
+uint8_t lowerNibble = (data_byte & 0x0F); yields 0110
+
+As for upperNibble += upperNibble > 9 ? 'A'- 10 :  '0';
+1011 = 13 thus 'A'-10 = 55....55+13=68='D' in ASCII representation
+0110 = 6 thus '0'= 48.....48+6 = '6' in ASCII representation
+**
+void UART_transmit_hex16(uint16_t data_double_byte){
+        UART_transmit_hex((uint8_t)(data_double_byte>>8));//shift to the right 8 bits
+        UART_transmit_hex((uint8_t)(data_double_byte&0x00FF));//Logical AND with 0000000011111111
+}
+**
+void UART_transmit_decimals(uint8_t decimal_value){
+        uint8_t digit1 = '0', digit2 = '0';//in ASCII both should be 48 
+        while (decimal_value >= 100){
+                value -= 100;
+                digit1++;
+        }
+        while(decimal_value>=10){
+                value-=10;
+                digit2++;
+        }
+        if(digit1 != '0') UART_transmit_char(digit1);
+        if((digit1!='0')||(digit2 !='0')) UART_transmit_char(digit2);
+        UART_transmit_char(decimal_value + '0');
+//ex) 321
+digit1 = '3' = 48+3
+digit2 = '2' = 48+2
+decimal_value = '1'= 48+1
+}
+**
+uint8_t receiveByte(void){
+        loop_until_bit_is_set(UCSR0A,RXC0);<--this method is very rudimentary as it checks consistently if bet is enabled
+        return UDR0;
+}
+void UART_getc(void)
+{
+    // wait for data
+    while(!(UCSR0A & (1 << RXC0)));
+
+    // return data
+    return UDR0;
+}
+
+void UART_getline(char *buffer, uint8_t num){
+        uint8_t buffIndex=0;
+        char c;
+        //while received character is not carriage return and end of buffer has not been reached
+        do{
+                c = UART_getc();
+                buffer[buffIndex++] =c;
+        }while((buffIndex < num) && (c !='\r'));
+        buffer[buffIndex] = 0; //ensures the buffer or string at the end of the byte is null terminated
+}
+//You are force to allocate a buffer to store characters in and pass it to our recieve function.
+ex)
+uint8_t buffSize = 20;
+char buffer[buffSize];
+UART_getline(buffer,buffSize);
+UART_transmit_string("You entered : ");
+UART_transmit_string(buffer);
+UART_transmit_string('\n');
+
+Interrupt Transmission
+As we've seen polling wastes valueable CPU time for the USART registers most espcially when you run loop_until_bit_is_set function
+This valuable time could be used in the execuetion of other instructions(unless you got multiple cores to do some work for you!)
+This problem is solved by interrupt based transmission.
+In this example given by Arnab Kumar Das(https://www.arnabkumardas.com/arduino-tutorial/usart-programming/) the code transmits the characters
+'a' endlessly while the D13 LED on Arduino UNO keeps blinking. The CPU keeps performing the LED blinking in an infinite loop and every time the transmission
+finishes an interrupt is generated to state that the UDR0 buffer is ready to RECEIVE new data.
+The CPU pauses the LED blinking and serves the Interrupt Service Routine!
+
+/*
+* usart.c
+*
+* Created : 15-08-2020 09:34:44 PM
+* Author  : Arnab Kumar Das
+* Website : www.ArnabKumarDas.com
+*/
+
+#define F_CPU 16000000UL // Defining the CPU Frequency
+
+#include <avr/io.h>      // Contains all the I/O Register Macros
+#include <util/delay.h>  // Generates a Blocking Delay
+#include <avr/interrupt.h> // Contains all interrupt vectors
+
+#define USART_BAUDRATE 9600 // Desired Baud Rate
+#define BAUD_PRESCALER (((F_CPU / (USART_BAUDRATE * 16UL))) - 1)
+
+#define ASYNCHRONOUS (0<<UMSEL00) // USART Mode Selection
+
+#define DISABLED    (0<<UPM00)
+#define EVEN_PARITY (2<<UPM00)
+#define ODD_PARITY  (3<<UPM00)
+#define PARITY_MODE  DISABLED // USART Parity Bit Selection
+
+#define ONE_BIT (0<<USBS0)
+#define TWO_BIT (1<<USBS0)
+#define STOP_BIT ONE_BIT      // USART Stop Bit Selection
+
+#define FIVE_BIT  (0<<UCSZ00)
+#define SIX_BIT   (1<<UCSZ00)
+#define SEVEN_BIT (2<<UCSZ00)
+#define EIGHT_BIT (3<<UCSZ00)
+#define DATA_BIT   EIGHT_BIT  // USART Data Bit Selection
+
+#define RX_COMPLETE_INTERRUPT         (1<<RXCIE0)
+#define DATA_REGISTER_EMPTY_INTERRUPT (1<<UDRIE0)
+
+volatile uint8_t USART_TransmitBuffer; // Global Buffer
+
+void USART_Init()
+{
+	// Set Baud Rate
+	UBRR0H = BAUD_PRESCALER >> 8;
+	UBRR0L = BAUD_PRESCALER;
+
+	
+	// Set Frame Format
+	UCSR0C = ASYNCHRONOUS | PARITY_MODE | STOP_BIT | DATA_BIT;
+	
+	// Enable Receiver and Transmitter
+	UCSR0B = (1<<RXEN0) | (1<<TXEN0);
+	
+	//Enable Global Interrupts
+	sei();
+}
+
+void USART_TransmitInterrupt(uint8_t Buffer)
+{
+	USART_TransmitBuffer = Buffer;
+	UCSR0B |= DATA_REGISTER_EMPTY_INTERRUPT; // Enables the Interrupt
+}
+
+int main()
+{
+	DDRB |= 1 << 5; // Configuring PB5 / D13 as Output
+	uint8_t LocalData = 'a';
+	USART_Init();
+	USART_TransmitInterrupt(LocalData);
+	
+	while (1)
+	{
+		PORTB |= 1<<5; // Writing HIGH to glow LED
+		_delay_ms(500);
+		PORTB &= ~(1<<5); // Writing LOW
+		_delay_ms(500);		
+	}
+	
+	return 0;
+}
+
+ISR(USART_UDRE_vect)
+{
+	UDR0 = USART_TransmitBuffer;
+	//UCSR0B &= ~DATA_REGISTER_EMPTY_INTERRUPT; // Disables the Interrupt, uncomment for one time transmission of data
+}
+//If you want to make sense of this OPEN UP THE DATASHEET!
+	sei();//<--set interrupt global enable flag bit(re-enable interrupts after being disabled)
+        Arduino (Atmega328p) has a global interrupt enable/disable control bit that you can use for the purpose of disabling or
+        re-enabling global interrupts(in other files i guess....) in the MCU
+        sei() and cli() are assembly instructions!
+//UCSR0C = ASYNCHRONOUS | PARITY_MODE | STOP_BIT | DATA_BIT;
+A cleaner way to set the frame format(just do not forget to set your MACOROS)
+
+//#define DATA_REGISTER_EMPTY_INTERRUPT (1<<UDRIE0)
+Writing this bit to one enables interrupt on the UDREn(only avaliable at UCSRnA  register) flag. A data register empty interrupt will be generated only if the
+UDRIEn bit is written to one, the global interrupt flag in SREG(status register from AVR CPU: Bit 7 – I: Global Interrupt Enable) is written to one and the UDREn(check for empty register) bit in UCSRnA is set.
+ 
+//ISR(USART_UDRE_vect)
+{
+	UDR0 = USART_TransmitBuffer;
+	//UCSR0B &= ~DATA_REGISTER_EMPTY_INTERRUPT; // Disables the Interrupt, uncomment for one time transmission of data
+}
+so you have now enabled the status register with the enable interrupt so create the function that loads the buffer into
+UDR0(inside UCSRnA)
+
+Interrupt Reception
+The CPU is busy looping an infinite loop and whever data is received in USART Buffer an interrupt is thrown and the CPU serves it and toggles the LED accordingly. The CPU
+DOES NOT have to monitor the USART register bits to check the status of the reception.
+/*
+* usart.c
+*
+* Created : 15-08-2020 09:34:44 PM
+* Author  : Arnab Kumar Das
+* Website : www.ArnabKumarDas.com
+*/
+
+#define F_CPU 16000000UL // Defining the CPU Frequency
+
+#include <avr/io.h>      // Contains all the I/O Register Macros
+#include <util/delay.h>  // Generates a Blocking Delay
+#include <avr/interrupt.h> // Contains all interrupt vectors
+
+#define USART_BAUDRATE 9600 // Desired Baud Rate
+#define BAUD_PRESCALER (((F_CPU / (USART_BAUDRATE * 16UL))) - 1)
+
+#define ASYNCHRONOUS (0<<UMSEL00) // USART Mode Selection
+
+#define DISABLED    (0<<UPM00)
+#define EVEN_PARITY (2<<UPM00)
+#define ODD_PARITY  (3<<UPM00)
+#define PARITY_MODE  DISABLED // USART Parity Bit Selection
+
+#define ONE_BIT (0<<USBS0)
+#define TWO_BIT (1<<USBS0)
+#define STOP_BIT ONE_BIT      // USART Stop Bit Selection
+
+#define FIVE_BIT  (0<<UCSZ00)
+#define SIX_BIT   (1<<UCSZ00)
+#define SEVEN_BIT (2<<UCSZ00)
+#define EIGHT_BIT (3<<UCSZ00)
+#define DATA_BIT   EIGHT_BIT  // USART Data Bit Selection
+
+#define RX_COMPLETE_INTERRUPT         (1<<RXCIE0)
+#define DATA_REGISTER_EMPTY_INTERRUPT (1<<UDRIE0)
+
+volatile uint8_t USART_ReceiveBuffer; // Global Buffer
+
+void USART_Init()
+{
+	// Set Baud Rate
+	UBRR0H = BAUD_PRESCALER >> 8;
+	UBRR0L = BAUD_PRESCALER;
+	
+	// Set Frame Format
+	UCSR0C = ASYNCHRONOUS | PARITY_MODE | STOP_BIT | DATA_BIT;
+	
+	// Enable Receiver and Transmitter
+	UCSR0B = (1<<RXEN0) | (1<<TXEN0);
+	
+	//Enable Global Interrupts
+	sei();
+}
+
+int main()
+{
+	DDRB |= 1 << 5; // Configuring PB5 / D13 as Output
+	USART_Init();
+	UCSR0B |= RX_COMPLETE_INTERRUPT;
+	while (1)
+	{
+	}
+	return 0;
+}
+
+ISR(USART_RX_vect)
+{
+	USART_ReceiveBuffer = UDR0;
+	if (USART_ReceiveBuffer == 'a')
+	{
+		PORTB |= 1<<5;    // Writing HIGH to glow LED
+	}
+	else
+	{
+		PORTB &= ~(1<<5); // Writing LOW
+	}
+
+}
+//UCSR0B |= RX_COMPLETE_INTERRUPT;
+Writing this bit to one enables interrupt on the RXCn flag(in register UCSRnA: Bit 7 – RXCn: USART Receive Complete). 
+A USART receive complete interrupt will be generated only if the RXCIEn bit is written to one, the global interrupt flag in
+SREG(status register in AVR CPU) is written to one and the RXCn bit in UCSRnA is set
+//USART_ReceiveBuffer = UDR0;
+set the global variable to the buffer received from another device!
+
+Interrupt Loopback
+/*
+* usart.c
+*
+* Created : 15-08-2020 09:34:44 PM
+* Author  : Arnab Kumar Das
+* Website : www.ArnabKumarDas.com
+*/
+
+#define F_CPU 16000000UL // Defining the CPU Frequency
+
+#include <avr/io.h>      // Contains all the I/O Register Macros
+#include <util/delay.h>  // Generates a Blocking Delay
+#include <avr/interrupt.h> // Contains all interrupt vectors
+
+#define USART_BAUDRATE 9600 // Desired Baud Rate
+#define BAUD_PRESCALER (((F_CPU / (USART_BAUDRATE * 16UL))) - 1)
+
+#define ASYNCHRONOUS (0<<UMSEL00) // USART Mode Selection
+
+#define DISABLED    (0<<UPM00)
+#define EVEN_PARITY (2<<UPM00)
+#define ODD_PARITY  (3<<UPM00)
+#define PARITY_MODE  DISABLED // USART Parity Bit Selection
+
+#define ONE_BIT (0<<USBS0)
+#define TWO_BIT (1<<USBS0)
+#define STOP_BIT ONE_BIT      // USART Stop Bit Selection
+
+#define FIVE_BIT  (0<<UCSZ00)
+#define SIX_BIT   (1<<UCSZ00)
+#define SEVEN_BIT (2<<UCSZ00)
+#define EIGHT_BIT (3<<UCSZ00)
+#define DATA_BIT   EIGHT_BIT  // USART Data Bit Selection
+
+#define RX_COMPLETE_INTERRUPT         (1<<RXCIE0)
+#define DATA_REGISTER_EMPTY_INTERRUPT (1<<UDRIE0)
+
+volatile uint8_t USART_ReceiveBuffer; // Global Buffer
+
+void USART_Init()
+{
+	// Set Baud Rate
+	UBRR0H = BAUD_PRESCALER >> 8;
+	UBRR0L = BAUD_PRESCALER;
+	
+	// Set Frame Format
+	UCSR0C = ASYNCHRONOUS | PARITY_MODE | STOP_BIT | DATA_BIT;
+	
+	// Enable Receiver and Transmitter
+	UCSR0B = (1<<RXEN0) | (1<<TXEN0);
+	
+	//Enable Global Interrupts
+	sei();
+}
+
+int main()
+{
+	USART_Init();
+	UCSR0B |= RX_COMPLETE_INTERRUPT;
+	while (1)
+	{
+	}
+	return 0;
+}
+
+ISR(USART_RX_vect)
+{
+	USART_ReceiveBuffer = UDR0;
+	UDR0 = USART_ReceiveBuffer;
+}
+
+
+we'll look at more for the interrupts in another chp!
+
+
+Now to just go a little more in depth inside the libc libraries provided to us,
+we'll just give a little rerun on easy implementations via this website(https://www.appelsiini.net/2011/simple-usart-with-avr-libc/)
+If we are to create a custom printf for the via USART communication to our terminal we need to take a look at...
+Redirecting STDIN and STDOUT to UART
+FDEV_SETUP_STREAM(part of the stdio.h) {Initializer for a user-supplied stdio stream.
+
+This macro acts similar to fdev_setup_stream(), but it is to be used as the initializer of a variable of type FILE.
+The remaining arguments are to be used as explained in fdev_setup_stream(). }
+macro can be used to setup a buffer which is valid for stdio operations. Initialized buffer will be of type FILE. You can define separate
+buffers for input and output. Alternatively you can define only one buffer which works for both input and output.
+First and second parameters are names of the functions which will be called when data is either read from or written to the buffer.
+***
+FILE uart_output = FDEV_SETUP_STREAM(uart_putchar, NULL, _FDEV_SETUP_WRITE);
+FILE uart_input = FDEV_SETUP_STREAM(NULL, uart_getchar, _FDEV_SETUP_READ);
+
+FILE uart_io FDEV_SETUP_STREAM(uart_putchar, uart_getchar, _FDEV_SETUP_RW);
+***
+
+A small recap on File Handling in C, which is the process of creating, opening, reading, writing, and closing operations on a file.
+C language provides different functions such as fopen(), fwrite(), fread(), fseek(), fprintf(), etc. to perform input, output, and many different C file operations
+in our program.
+But what is a FILE?{FILE *fp1,*fp2;}
+While doing file handling we often use FILE for declaring the pointer in order to point to the file we want to read from or to write on.
+As we are declaring the pointer of type FILE so we can say it is a data type, but what KIND of data type?
+A FILE is a type of structure typedef as FILE. It is considerded as opaque data type as its implementation is hidden. Definition of FILE is in stdio
+although it IS system specific.
+***
+struct _IO_FILE {
+  int _flags;       /* High-order word is _IO_MAGIC; rest is flags. */
+#define _IO_file_flags _flags
+
+  /* The following pointers correspond to the C++ streambuf protocol. */
+  /* Note:  Tk uses the _IO_read_ptr and _IO_read_end fields directly. */
+  char* _IO_read_ptr;   /* Current read pointer */
+  char* _IO_read_end;   /* End of get area. */
+  char* _IO_read_base;  /* Start of putback+get area. */
+  char* _IO_write_base; /* Start of put area. */
+  char* _IO_write_ptr;  /* Current put pointer. */
+  char* _IO_write_end;  /* End of put area. */
+  char* _IO_buf_base;   /* Start of reserve area. */
+  char* _IO_buf_end;    /* End of reserve area. */
+  /* The following fields are used to support backing up and undo. */
+  char *_IO_save_base; /* Pointer to start of non-current get area. */
+  char *_IO_backup_base;  /* Pointer to first valid character of backup area */
+  char *_IO_save_end; /* Pointer to end of non-current get area. */
+
+  struct _IO_marker *_markers;
+
+  struct _IO_FILE *_chain;
+
+  int _fileno;
+#if 0
+  int _blksize;
+#else
+  int _flags2;
+#endif
+  _IO_off_t _old_offset; /* This used to be _offset but it's too small.  */
+
+#define __HAVE_COLUMN /* temporary */
+  /* 1+column number of pbase(); 0 is unknown. */
+  unsigned short _cur_column;
+  signed char _vtable_offset;
+  char _shortbuf[1];
+
+  /*  char* _save_gptr;  char* _save_egptr; */
+
+  _IO_lock_t *_lock;
+#ifdef _IO_USE_OLD_IO_FILE
+};
+
+struct _IO_FILE_complete
+{
+  struct _IO_FILE _file;
+#endif
+#if defined _G_IO_IO_FILE_VERSION && _G_IO_IO_FILE_VERSION == 0x20001
+  _IO_off64_t _offset;
+# if defined _LIBC || defined _GLIBCPP_USE_WCHAR_T
+  /* Wide character stream stuff.  */
+  struct _IO_codecvt *_codecvt;
+  struct _IO_wide_data *_wide_data;
+  struct _IO_FILE *_freeres_list;
+  void *_freeres_buf;
+  size_t _freeres_size;
+# else
+  void *__pad1;
+  void *__pad2;
+  void *__pad3;
+  void *__pad4;
+  size_t __pad5;
+# endif
+  int _mode;
+  /* Make sure we don't get into trouble again.  */
+  char _unused2[15 * sizeof (int) - 4 * sizeof (void *) - sizeof (size_t)];
+#endif
+};
+***
+
+thus 
+{
+fdev_setup_stream(stream, put, get, rwflag)
+This macro takes a user-supplied buffer stream, and sets it up as a stream that is valid for stdio operations, similar to 
+one that has been obtained dynamically from fdevopen(). The buffer to setup must be of type FILE.
+The rwflag argument can take one of the values _FDEV_SETUP_READ, _FDEV_SETUP_WRITE, or _FDEV_SETUP_RW, for read, write, or read/write intent, respectively.
+}
+
+thus to make a couple changes to the transmission of bytes via UART and the receving of bytes...
+***
+void UART_transmit_char(char c, FILE *stream) {
+    if (c == '\n') {
+        UART_transmit_char('\r', stream);
+    }
+    loop_until_bit_is_set(UCSR0A, UDRE0);
+    UDR0 = c;
+}
+
+char UART_receive_char(FILE *stream) {
+    loop_until_bit_is_set(UCSR0A, RXC0); /* Wait until data exists. */
+    return UDR0;
+}
+***
+the stream for your buffer!
+***
+FILE uart_output = FDEV_SETUP_STREAM(uart_putchar, NULL, _FDEV_SETUP_WRITE);
+FILE uart_input = FDEV_SETUP_STREAM(NULL, uart_getchar, _FDEV_SETUP_READ);
+
+FILE uart_io FDEV_SETUP_STREAM(uart_putchar, uart_getchar, _FDEV_SETUP_RW);
+***
+
+then to redirect both STDIN and STDOUT to UART. We conduct so...
+***
+  void UART_transmit_char(char c, FILE *stream);
+  char UART_receive_char(FILE *stream);
+  FILE uart_output = FDEV_SETUP_STREAM(uart_putchar, NULL, _FDEV_SETUP_WRITE);
+  FILE uart_input = FDEV_SETUP_STREAM(NULL, uart_getchar, _FDEV_SETUP_READ);
+int main(void) {
+
+    initUSART();
+    stdout = &uart_output;
+    stdin  = &uart_input;
+
+    char input;
+
+    while(1) {
+        puts("Hello world!");
+        input = getchar();
+        printf("You wrote %c\n", input);
+    }
+
+    return 0;
 }
 ***

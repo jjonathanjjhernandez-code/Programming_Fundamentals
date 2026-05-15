@@ -11,7 +11,7 @@ void initUSART(void) {
   UCSR0B = (1 << TXEN0) | (1 << RXEN0);
   UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
 }
-// procedure to transmit the byte
+// procedure to transmit the byte which can be translated to char!
 void transmitByte(uint8_t data) {
   loop_until_bit_is_set(UCSR0A, UDRE0);
   UDR0 = data;
