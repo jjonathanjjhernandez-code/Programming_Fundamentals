@@ -19,7 +19,7 @@ int main(void) {
   while (1) {
     if (button_press) {
       button_press = false;
-      puts("Hello world!"); // place characters on the terminal!
+      printf("Hello world!\tCount: %d\n",count); // place characters on the terminal!
         PORTD |= (1 << PD5);
       _delay_ms(100);
     }else{
@@ -30,6 +30,7 @@ int main(void) {
 }
 /*Example of ISR BUtton!*/
 ISR(INT1_vect) {
+  count++;
   button_press = true; // Interrupt Service Routines need to be quick
   // boolean statement toggles are FAST!
 }

@@ -227,3 +227,56 @@ Now write the code that you would like to run using the ISR(PCINTx_vect) macro:
                 ======================================
                         Global, Volatile Variables
                 ======================================
+As you may have noticed in some parts of the code certain variables had the data type "volatile". Specifically, the global variables in which case any of the other functions
+defined in the file can access it without explicitly passing it as an argument to that function. In which those global variables are avaliable to the "main" function and the ISR!
+
+The compile needs to be warned that the variable defined "volatile" can change without notice in any given context. In fact, this distinction is so important that not declaring
+the variable as volatile will break the code.
+[The volatile Keyword]
+volatile warns the compiler that the declared variable can change at any time without warning, and that the compiler should not optimize it away no matter how static it seems.
+imagine some code like this....'
+***
+int main(void){
+    char 'a';
+    a = 'H';
+    while(1){
+        transmitByte(a);
+    }
+}
+***
+The compiler is going to notice that nothing in your main() function changes value of the variable 'a', and the optimizer will get rid of it entirely. The optimizer will instead
+compile the equivalent of this code for you...
+***
+ int main(void){
+    while(1){
+        transmitByte('H');
+    }
+ }
+***
+which does the same thing, but is much shorter and does not involve allocating scarce memory for a variable that never varies.
+The optimizer is pretty good about finding shortcuts through our code, and if we write code that uses avaliable that does not change, the optimizer is going to replace it with a
+constant. This won't do for interrupts. 
+Because the ISRs are never explicitly called from within the main() function, the optimizer does not know what the ISR is changing a
+variable relevant for main(), and it replaces it with a constant value.
+
+To tell the compiler that we expect our global variables to change without warning, we mark it volatile. Now the compiler will not make the assumptions that it knows what the
+variable's value is.
+{This is how your PORTB, PINB and the other macros that define the ports have been defined as volatile!}
+[Aside: volatile in for loops]
+Another place you will want to define a variable as volatile is when you are using a loop to do noting BUT delay. Because it is doing nothing, the compiler will optimize it away.
+ex)
+***
+uint8_t i;
+    for(i = 0; i < 200; i++){
+        ;
+    }
+***
+hoping to slow the program down for something like 200 CPU cycles, the compiler notices the empty for loop and optimize it to:
+***
+uint8_t i;
+***
+so instead....
+***
+volatile uint8_t i;
+for(i=00;i<200;i++){;}
+***

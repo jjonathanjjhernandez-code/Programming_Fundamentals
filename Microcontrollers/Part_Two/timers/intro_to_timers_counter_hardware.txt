@@ -1,0 +1,102 @@
+                ==========================================================
+                        Introduction to the Timer/Counter Hardware
+                ==========================================================
+Previously we marked the passing of time by holding up the CPU in counting delay loops. There will be no need for that
+once we configure and use the internal timer-counter hardware.
+
+They might take a little to setup but makes code more simpler, makes timing signficantly more accurate, and frees up the CPU for useful work.
+let's look at a snippet of code..
+***
+void playNote(uint16_t wavelength, uint16_t duration){
+    uint16_t elapsed;
+    uint16_t i;
+    for(elapsed = 0; elapsed < duration; elapsed+=wavelength){
+        for(i=0; i < wavelength;i++){
+            _delay_us(1);
+        }
+        SPEAKER_PORT ^= (1<<SPEAKER);
+    }
+}
+***
+This code will work as intended, but if you'd like the CPU to do anything else at the same time, you are out of luck-CPU is tied up doing the
+important task of waiting for a precise amount of time. All of our processor power is momentarily tied up just spinning around in a fruitless loop
+that simply counts up until it is done.
+What we need instead is a clock that we can use as a timebase and a counter that will count up a certain number of clock ticks for us before it acts/
+That is, of course, what the internal timer/counter hardware peripherals does.
+
+As far as operations go for the clock system input arrives from either the system clock or an external source connected up to an input 
+pin(T0 for counter 0).
+In this way, the same hardware can be used as a timer(counting ticks of the system clock) or a generic counter
+(counting voltage change events on the dedicated input pin.) The current count is stored in an internal timer/counter register(TCNTn)
+Your code can read the count from TCNT registers at any time, yielding the current count value. You can also write to it, and you will often do so in
+order t reset the count to zero.
+With just reading and writing to the timer register, you can make the equivalent of a stopwatch-set the timer value to zero, do something, and then
+check the value again to see how much time has elapsed.
+
+If instead of a stopwatch, you would like an alarm clock, you can put the Timer Compare Unit to work for you. Its job is to let you know when a certain
+count value is reached.
+You store this compare value in the Output Compare Register(OCRn). This way, you can store the value you'd like for an elapsed time, a frequency or a
+duty cycle in the OCRn, and then forget about it - the timer hardware will do the rest for you, freeing up the CPU to do more interesting things.
+
+So when the counter is counting, and the compare unit is comparing the count value to a value that you set. What happens when the compare value is 
+reached? A compare event triggers the Waveform generator, and what it does depends on a pair of important configuration options...
+    -the waveform mode  
+    --the output mode
+In breif, the Waveform Generator unit can be configured to generate three main types of output depending on the waveform mode: counter, timer or PWM.
+Whether you pins set, cleared, or toggled is determined by the output modes.
+The timer/counters can also trigger interrupts, which is useful when you want to periodically update variables or run specific sections of code.
+
+The ATmega series of AVR chips have three timers, two 8-bit(256 step) resolution and one with 16-bit(65,356 step) resolution.
+That way, you can have one timer/counter generating a frequency for you, another keeping track of wall-clock time, and the third timing short-duration
+events. They are very useful once you have learned how to use them.
+
+As you can see, there is a lot of flexibility and utility built into the timer/counter hardware. 
+If you want to count button presses, you can simply hook up your (hardware-debounced) switch directly to the appropriate counter input pin.
+Or imagine that you want to get the time in betweem button presses.
+Then you can set your code to zero in the TCNT register at the beginning, connect the counter up to the system clock, and then when the button is pressed,
+simply read out the value in TCNT.
+The count will be the number of system clock ticks that have elapsed, which you can then manipulate any way you want. And because all of this is taken care
+of by the timer/counter hardware, the CPU is free to listen to serial ports or crunch numbers at the same time.
+[Basic Waveform Generation Modes]
+When you are configuring the timer/counter hardware, the first thing you will need to decide is what mode of operation you want the timer/counter operating in.
+The AVR datasheet includes fairly good descriptions(i will go over as well!) of each of these modes and a table accompanying the descriptions.
+++Normal Modes 
+    In this mode, the counter counts up until it overflows at 255, ir 65,535. You use this mode most when you are counting clicks, timing an event, or clearing
+    and reading TCNT from your code.
+++CTC Mode
+    In Clear Timer on Compare Match mode, the counter resets itself automatically when it reaches the value that is stored in the OCRnA register instead of
+    waiting until it hits 255 or 65,535.
+    SO by writing to the output compare register, we control the FREQUENCY of the cycles. Configuring a pin to toggle set, or clear when a match occurs is a very
+    common choice. Use this mode when you want an adjustable frequency or timebase.
+    By triggering an interrupt when the counter resets, we can also execute arbitrary ISR code in a strictly timed fashion. This more advanced use of timers with
+    interrupts will be the basis of a real-time clock and all sorts of scheduling systems.
+                ==========================================================
+                                      Code Snippets
+                ==========================================================
+To a CPU a milisecond is an eternity especially if it has a clock at 8Mhz, it can run eight thousand computations in that time, but for humans, 100ms is fast.
+Here is a code example to test out reaction times..
+***
+#include <avr/io.h>
+#include <util/delay.h>
+#include <avr/interrupt.h>
+//Custom functions
+#include "pinDefines"
+#include "USART.h"
+static inline void initTimer1(void){
+    TCCR1B |= (1<<CS11) | (1<<CS10);
+}
+int main(void){
+    char byte;
+    uint16_t timerValue;
+    //---Inits---//
+    initUSART();
+    initTimer1();
+    LED_DDR = 0xff;
+    BUTTON_PORT |= (1<<BUTTON);
+
+    printString("\r\nReaction Timer:\r\n");
+    printString("-----------\r\n");
+    printString("Press any key to start!")s
+}
+
+https://www.nongnu.org/avr-libc/user-manual/group__avr__stdio.html#gaa3b98c0d17b35642c0f3e4649092b9f1
