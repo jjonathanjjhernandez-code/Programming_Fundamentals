@@ -1,0 +1,11 @@
+fprintf('When prompted to please input two numbers!\n');
+x =input("Number One: ");
+y =input("Number Two: ");
+fprintf("Here is their sum:");
+disp(x+y);
+fprintf('Here is their difference:');
+disp(x-y);
+fprintf('Here is their product:');
+disp(x*y);
+fprintf('Here is their quotient:');
+disp(x/y);
