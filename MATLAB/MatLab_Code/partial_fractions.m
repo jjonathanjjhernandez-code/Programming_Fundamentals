@@ -10,8 +10,12 @@
 %laplace!
 
 %Partial Fraction Expansion
-C = [1]
-D = [1*10^(-9) 2.2*10^(-5) 1 0]
+C = [160 1400 1500] %numerator
+D = [5 25 0] %denominator
 [coeff, roots, k_num] = residue(C,D)
-fprintf('holy moly!\n')
+
+fprintf('holy moly!\n');
 %Inverse Laplace
+syms s
+f = ((12)/(s+5))+4/s
+A = ilaplace(f)
