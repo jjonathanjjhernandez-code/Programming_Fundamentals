@@ -65,7 +65,7 @@ int main(void){
 }
 ISR(ADC_vect){//&&Vector #: 22   &&Program Address:0x002A
 //Interrupt Vector:ADC----ADC Conversion Complete
-        if(channel_switch){//if false start with ADC2 else ADC1
+        if(channel_switch){//if true start with ADC2 else ADC1
             VRy_value = ADC;
             ADMUX = (0b11110000 & ADMUX) | (0b00000001);
             ADCSRA |= (1<<ADSC);

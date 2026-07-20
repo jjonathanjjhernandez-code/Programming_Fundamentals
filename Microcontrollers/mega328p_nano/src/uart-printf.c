@@ -6,7 +6,7 @@ static uint8_t count = 0;
 int main(void) {
   // Interrupt Config
   initUSART();
-  EICRA |= (1 << ISC11) | (0 << ISC10); // The falling edge of INT1 generates an interrupt request
+  EICRA |= (1 << ISC11) | (0 << ISC10); // The falling edge of INT1 generates an interrupt request for a button
   EIMSK |= (1 << INT1); // external pin(1<<PD3) is enabled
   sei();
   // Pin config

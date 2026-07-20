@@ -83,7 +83,9 @@ Here is a code example to test out reaction times..
 #include "pinDefines"
 #include "USART.h"
 static inline void initTimer1(void){
+    //Normal Mode operation, counting ticks!
     TCCR1B |= (1<<CS11) | (1<<CS10);
+    //Clock Speed: 1MHZ/64 each tick is 64us~~~15.6ticks per ms
 }
 int main(void){
     char byte;
@@ -97,6 +99,134 @@ int main(void){
     printString("\r\nReaction Timer:\r\n");
     printString("-----------\r\n");
     printString("Press any key to start!")s
+
+    while(1){
+        byte = receiveByte();
+        printString("\r\nGet Ready...");
+        randomDelay();
+
+        printString("\r\nGo!\r\n");
+        LED_PORT = 0xFF;
+        TCNT1 = 0;
+
+        if(bit_is_clear(BUTTON_PIN,BUTTON)){
+            //button pressed_exactly_ as LEDS light up
+            printString("You're only cheating yourself.\r\n");
+        }else{
+            loop_until_bit_is_clear(BUTTON_PIN,BUTTON);
+            timerValue = TCNT1 >>4;
+            printMilliseconds(timerValue);
+            printComments(timerValue);
+        }
+        LED_PORT = 0x00;
+        printString("Press any key to try again.\r\n");
+    }
+    return (0);
+}
+***
+
+Let's try to only look at the timer lines of code by themselves since our only interest as of now is the timing
+functionality!
+***
+ TCCR1B |= (1<<CS11) | (1<<CS10); <---using the Timer/Counter1
+***
+TCCR1B--Timer/Counter1 Control Register B
+The bits CS11 & CS10 are part of 3 bits that control the clock selection provided by arduino
+Bit 2:0 - CS12:0: Clock Select Bit Description
+|   CS12    |   CS11    |   CS10    |   Description     |
+     0           0           0          No clock source(Timer/Counter stopped)
+     0           0           1          clk(i/o)/1{no prescaling}
+     0           1           0          clk(i/o)/8{from prescaler}
+     0           1           1          clk(i/o)/64{from prescaler}
+     1           0           0          clk(i/o)/256{from prescaler}
+     1           0           1          clk(i/o)/1024{from prescaler}
+     1           1           0          external clock source on t1 pin. clock on falling edge
+     1           1           1          external clock source on t1 pin. clock on rising edge
+
+In all essence it appears once you look at the datasheet that the timing is the same regardless the clock selection you use
+it is a matter of how many ticks you want for every unit of time{more accurate?}
+
+In the example above you can we are setting up for a 64 prescaler!
+***
+TCNT1 = 0;
+***
+Recall that the ticks that you find{the value} is kept in register TCNTx{in our case TCNT1}
+"TCNT1H and TCNT1L combine to make TCNT1. Which gives direct access, both for read and for write operations, to the Timer/Counter
+unit 16-bit counter."
+So, if you set it zero, well you don't have any ticks any more so your number of ticks reset.
+***
+timerValue = TCNT1 >> 4;
+***
+/* each tick is approx 1/16 milliseconds, so we bit-shift divide */
+this appears to be true since our counter only counts TICKS not exactly seconds but we can use those ticks as a reference to figure
+out time!
+
+So to generalize just a little. Once the timer/counter is initialized, it just runs on its own, counting up until it reaches its
+maximum value and starts again from zero. TCCR1x is a 16-Bit Timer/Counter whereas TCCR0x is an 8-Bit Timer/Counter
+meaning TCCR1x can count up to 65,535 ticks before rolling over.
+The speed at which the timer/counter counts depends on the system CPU speed and the CPU prescaler that we pick when we're initializing 
+the timer. In this case, using a 1MHz CPU clock and a divide-by-64 prescaler value, each timer tick takes 64 microseconds, which is close
+enough to 1/16th of a milisecond that we can calculate the timing with a bit-shit divide for convenience.
+
+                ==========================================================
+                                      CTC Mode with Timer 0
+                ==========================================================
+***
+#include <avr/io.h>
+#include <util/delay.h>
+#include "pinDefines"
+#include "scale8.h"
+
+static inline void initTimer(void){
+    TCCR0A |= (1<<WGM01);   //CTC Mode
+    TCCR0A |= (1<<COM0A0);  //Toggle pin each cycle through
+    TCCR0B |= (1<<CS00) | (1<<CS01); //CPU Clock/64
+}
+static inline void playNote(uint8_t wavelength, uint16_t duration){
+    OCR0A = wavelength;
+    SPEAKER_DDR |= (1<<SPEAKER);
+
+    while(duration){
+        _delay_ms(1);
+        duration--;
+    }
+    SPEAKER_DDR &= ~(1<<SPEAKER);
 }
 
-https://www.nongnu.org/avr-libc/user-manual/group__avr__stdio.html#gaa3b98c0d17b35642c0f3e4649092b9f1
+int main(void){
+    initTimer();
+    while(1){
+        playNote(C2, 200);
+        playNote(E2, 200);
+        playNote(G2, 200);
+        playNote(C3, 400);
+
+        _delay_ms(1000);
+        _delay_ms(1000);
+        _delay_ms(1000);
+
+    }
+    return (0);
+}
+***
+"In clear timer on compare or CTC mode(WGM02:0=2), the OCR0A register is used to manipulate
+the counter resolution. In CTC mode the counter is cleared to zero when the counter value(TCNT0)
+matches the OCR0A. The OCR0A defines the top value for the counter, hence also its resolution.
+This mode allows greater control of the compare match output frequency.
+It also simplifies the operation of counting external events.
+"
+CTC mode is most often used when we want to set the timer/counter to repeat at a given frequency.
+
+***
+    TCCR0A |= (1<<WGM01);   //CTC Mode
+    TCCR0A |= (1<<COM0A0);  //Toggle pin each cycle through
+    TCCR0B |= (1<<CS00) | (1<<CS01); //CPU Clock/64
+***
+Bits 1:0 -- WGM01:0: Waveform Generation Mode
+Combined with WGM02 bit found in the TCCR0B register, these bits control the counting sequence of 
+the counter, the source for maximum(TOP) counter value, and what type of waveform generation to be used.
+    --Normal Mode
+    --CTC Mode
+    --Two Types of PWM Mode
+|   Mode    |   WGM02   |   WGM01   |   WGM00   |   Timer/Counter Mode of operation |   Top |   Update of OCRx at   | TOV Falh Set on   |
+     0           0           0           
