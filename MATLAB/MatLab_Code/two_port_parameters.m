@@ -29,7 +29,7 @@ y21 = (-z21)/(delta_z);
 y22 = (z11)/(delta_z);
 
 %admittance display symbolically
-fprintf('y11 = %s\ty12 = %s\ny21 = %s\ty22 = %s',y11,y12,y21,y22);
+%fprintf('y11 = %s\ty12 = %s\ny21 = %s\ty22 = %s',y11,y12,y21,y22);
 
 %display your admittance parameters over here!---numerically
 %A = ['y11 = ', num2str(y11), ' y12 = ', num2str(y12), ' y21 = ', num2str(y21), ' y22 = ', num2str(y22)];
@@ -54,7 +54,7 @@ b12 = (delta_z)/(z12);
 b21 = (1)/(z12);
 b22 = (z11)/(z12);
 %b parameters display symbolically
-fprintf('b11 = %s\tb12 = %s\nb21 = %s\tb22 = %s',b11,b12,b21,b22);
+%fprintf('b11 = %s\tb12 = %s\nb21 = %s\tb22 = %s',b11,b12,b21,b22);
 
 %numeric b
 %C = ['b11 = ', num2str(b11), ' b12 = ', num2str(b12), ' b21 = ', num2str(b21), ' b22 = ', num2str(b22)];
@@ -67,7 +67,7 @@ h12 = (z12)/(z22);
 h21 = -(z21)/(z22);
 h22 = (1)/(z22);
 %h display symbolically
-fprintf('h11 = %s\th12 = %s\nh21 = %s\th22 = %s',h11,h12,h21,h22);
+%fprintf('h11 = %s\th12 = %s\nh21 = %s\th22 = %s',h11,h12,h21,h22);
 
 %numeric h
 %D = ['h11 = ', num2str(h11), ' h12 = ', num2str(h12), ' h21 = ', num2str(h21), ' h22 = ', num2str(h22)];
@@ -79,7 +79,7 @@ g12 = -(z12)/(z11);
 g21 = (z21)/(z11);
 g22 = (delta_z)/(z11);
 %admittance display symbolically
-fprintf('g11 = %s\tg12 = %s\ng21 = %s\tg22 = %s',g11,g12,g21,g22);
+%fprintf('g11 = %s\tg12 = %s\ng21 = %s\tg22 = %s',g11,g12,g21,g22);
 
 %numeric g
 %E = ['g11 = ', num2str(g11), ' g12 = ', num2str(g12), ' g21 = ', num2str(g21), ' g22 = ', num2str(g22)];

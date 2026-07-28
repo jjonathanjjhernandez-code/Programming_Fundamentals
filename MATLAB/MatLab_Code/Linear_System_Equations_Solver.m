@@ -3,9 +3,9 @@
 syms v1 v2 va s
 I1 = 1;
 I2 = 0;
-equation_one = (v1-va)/(1+1/s) ==I1;
-equation_two =  (v2-va)/s + v2==I2;
-equation_three = (va-v1)/(1+1/s) + (va/s) + (va-v2)/s==0;
+equation_one = (v1-va)/s + v1==I1;
+equation_two =  (v2)/(1/s) + v2 + (v2-va)/s==I2;
+equation_three = (va-v1)/s + (va-v2)/s + (va)/(1/s)==0;
 sol = solve([equation_one,equation_two,equation_three],[v1,v2,va]);
 z11 = sol.v1;
 z21 = sol.v2;
@@ -18,9 +18,9 @@ fprintf('z11 = %s\nz21 = %s\n',z11,z21);
 
 I1 = 0;
 I2 = 1;
-equation_one = (v1-va)/(1+1/s) ==I1;
-equation_two =  (v2-va)/s + v2==I2;
-equation_three = (va-v1)/(1+1/s) + (va/s) + (va-v2)/s==0;
+equation_one = (v1-va)/s + v1==I1;
+equation_two =  (v2)/(1/s) + v2 + (v2-va)/s==I2;
+equation_three = (va-v1)/s + (va-v2)/s + (va)/(1/s)==0;
 sol = solve([equation_one,equation_two,equation_three],[v1,v2,va]);
 z12 = sol.v1;
 z22 = sol.v2;
