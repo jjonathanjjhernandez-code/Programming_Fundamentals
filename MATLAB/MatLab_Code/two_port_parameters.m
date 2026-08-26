@@ -42,7 +42,7 @@ a12 = (delta_z)/(z21);
 a21 = (1)/(z21);
 a22 = (z22)/(z21);
 %a display symbolically
-fprintf('a11 = %s\ta12 = %s\na21 = %s\ta22 = %s',a11,a12,a21,a22);
+%fprintf('a11 = %s\ta12 = %s\na21 = %s\ta22 = %s',a11,a12,a21,a22);
 
 %numeric a
 %B = ['a11 = ', num2str(a11), ' a12 = ', num2str(a12), ' a21 = ', num2str(a21), ' a22 = ', num2str(a22)];
@@ -70,8 +70,8 @@ h22 = (1)/(z22);
 %fprintf('h11 = %s\th12 = %s\nh21 = %s\th22 = %s',h11,h12,h21,h22);
 
 %numeric h
-%D = ['h11 = ', num2str(h11), ' h12 = ', num2str(h12), ' h21 = ', num2str(h21), ' h22 = ', num2str(h22)];
-%disp(D);
+D = ['h11 = ', num2str(h11), ' h12 = ', num2str(h12), ' h21 = ', num2str(h21), ' h22 = ', num2str(h22)];
+disp(D);
 
 % 'g' parameters
 g11 = (1)/(z11);
