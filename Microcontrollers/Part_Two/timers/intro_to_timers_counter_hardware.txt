@@ -230,3 +230,4 @@ the counter, the source for maximum(TOP) counter value, and what type of wavefor
     --Two Types of PWM Mode
 |   Mode    |   WGM02   |   WGM01   |   WGM00   |   Timer/Counter Mode of operation |   Top |   Update of OCRx at   | TOV Falh Set on   |
      0           0           0           
+

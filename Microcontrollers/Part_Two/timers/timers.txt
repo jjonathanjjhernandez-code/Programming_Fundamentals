@@ -1,0 +1,169 @@
+                = = = = = = = = = = = = = = = = = = 
+                             Timers
+                = = = = = = = = = = = = = = = = = =
+**Now here is some advice.....more often than not the person writing the textbook or learning material that you are reading from
+more often than not have read the application in relation to the thing you are trying to accomplish!
+For example, as I am going over the topic of timers in the sense of being able to produce something with it {like making a simple second timer}
+I searched up the Atmega328p chip in the microchip website and what do you know the application note
+"AVR130: Setup and Use of AVR Timers"
+shows up!
+Now of course depending on how you learn you may also use a forum, blog, or a library to better understand the code and that is perfectly
+fine!
+What matters is that we make what we need to make to make sure it works!**
+
+In principle, a timer is a simple counter. Its advantage is that the input clock and operation of the timer is independent of the program execution.
+The deterministic clock makes it possible to measure time by counting the elapsed cycles and take the input frequency fo the timer to account.
+
+Generally, the megaAVR mcu have two 8-bit and one 16-bit timer. A timer with 16-bit resoultions is certainly mroe flexible to use than one with 8-bit
+resolution. However, bigger isn't always better, most MCU applications can get away with 8-bit resolution.
+Using a higher resolution means a larger program overhead, which costs processing time and should be avoided in speed optimized code. It also means higher
+device cost.
+
+Because of the flexibilty of the AVR timers, they can be used for different purposes. The number of timers determines the amount of independent configurations.
+But how do we go about doing the timer counting??
+
+                = = = = = = = = = = = = = = = = = = 
+                             Timer Events
+                = = = = = = = = = = = = = = = = = =
+The timer of the AVR can be specified to monitor several events. Status flags in the TIMSK register show if an event has occured.
+You can either conduct...
+    --Timer Overflow
+Which basically means that the counter register{TCNTx} has counted up to its maximum value and is reset to zero in the next timer clock cycle.
+The resolution of the timer determines the maximum vlaue of that timer! The maximum value a timer can count to can be calculated as such.....
+MaxVal - 2^(Resolution)-1-------{which for 8 bits is roughly 255 ticks? and for 16 bits should be roughly 65535 ticks...}
+The timer overflow ecent causes the Timer Overflow Flag(TOVx) to be set in the Timer Interrupt Flag Register(TIFRn)
+
+    --Compare Match
+In cases where it is not sufficient to monitor a timer overflow, the compare match interrupt can be used.
+The Output Compare Register(OCRx) can be loaded with a value [0...MaxVal] which the TCNTn will be compared against in every time cycle. When the timer reaches
+the compare value, the corresponding Output Compare Flag(OCFx) in the TIFRn register is set. The Timer can be configured to clear the count of the register to
+zero on a compare match. {probably our main interest over here!}
+
+    --Input Capture
+Timers in AVR have input pins to trigger the input capture event. A signal change at such a pin causes the timer value to be read and saved in the Input Capture
+Register{ICRx}. At the same time the input Capture Flag(ICFx) in the TIFRn will be set. This is iseful to measure the width of external pulses.
+
+What about triggering these events onto your program???
+
+                = = = = = = = = = = = = = = = = = = 
+                    Timer Event Notification
+                = = = = = = = = = = = = = = = = = =
+The timer operates independently of the program execution. For each timer event there is a corresponding status flag in the Timer Interrupt Flag Register(TIFRn).
+The occurence of timer events require a notification of the processor to trigger the execution of corresponding actions.
+This is done by setting the status flag of the event which occured.
+There are three different ways to monitor timer events and response to them:
+    --Constantly polling of status flags - interrupt flags and execution of corresponding code{constantly checking your flag bits!}
+    --Break of program flow and execution of Interrupt Service Routines(ISR)--probably our best bet over here! Just don't your ISR vectors in C!
+    --Changing the level of output pins automatically.
+Our main intereset here is conducting the Interrupt Control since after comparsion the flag bit can be set and our CPU will get a bit trigger notice!
+
+[Interrupt Controlled Notification]
+The AVR can be configured to execute interrupts if a timer event has occured(the corresponding interrupt flag in the TIFRn is set). Normal program execution will be
+interrupted(almost) immediately and the processor will execute the code of the Interrupt Service Routine. The advantage commpared to polling of interrupt flags is zero
+overhead in the main loop. This saves processing times.
+Timer interrupts are enabled by setting the correspinding but in the Timer Interrupt Mask Register (TIMSKn).
+The following example shows steps to enable the Output Compare Interrupt on Channel A of Timer2
+**
+ldi     r16, 1<<OCIE2A  ;store the bit or at least the 8 bit register into r16
+sts     TIMSK2, r16     ;Enable timer output compare interrupt TMSK2 is the Interrupt Mask Register
+sei                     ;Enable global interrupts 
+**
+
+                = = = = = = = = = = = = = = = = = = 
+                            Clock Options
+                = = = = = = = = = = = = = = = = = =
+The clock unit of the AVR timers consists of a prescaler connected to a multiplexer. A prescaker can be considerded as a clock divider.
+Now you migtht be asking why we even need a clock divider/splicer in the first place....
+it's quite simple...you see if you use the internal clocking systems{depending on the choice of timer!} the AVR chip usually runs at 16MHz.
+If a Timer/Counter increments on every single clock pulse at 16MHz, an 8-bit timer (0-255) overflows every 255/16,000 ~= 16us
+Which is too fast to be useful for things like blinking an LED once a second or generating a 1kHz PWM signal.
+The prescaler sits between the system clock and the timer, dividing the frequency down:
+System Clock (16 MHz) --> [Prescaler/N] --> Timer Clock --> Timer/Counter Register
+
+The multiplexer of the circuit is used to select which prescaled clock signal to use as input signal for the Timer.
+Alternatively, the multiplexer can be used to bypass the prescaler and configure an external pin to be used as input for the Timer.
+{Just be aware that Synchronous Timers are tied with the chips internal clocking system and Asynchronous Timer are tied with the external oscialltor/crystasl
+on the PCB!
+}
+Note:
+    --The prescaler is constantly running during operation. In cases where the timer has to count very accurately it has to be ensured that the prescaler starts counting
+    from zero.
+    --On devices with shared prescaler, executing a prescaler reset will affect all connected timers.
+[Clocking by System Clock]
+Using the system clock is an option for an input signal for the prescaler{which now that i am thinking about it sounds like a digital block}.
+Even if a prescaled value is chose instead of the system clock, this clock is based on the system clock.
+Based on TCCRx register and the bits configured like so
+Bit   2    1   0
+    CSx2|CSx1|CSx0
+Just to give a rough example say you wanted to use a 16-bit Timer and you want to prescale the 
+internal clock{16MHz} by 1024 so obviously the bits have to be: 1 0 1
+Math wise that means Clck SOurce/1024 ~= 15625 Hz {which is a LOT LESS than 16MHz}
+Meaning every 64us{15625Hz} a tick is produced to the TCNTx register and obviously to get one second you do a simple multiplication like so....
+Meaning how many ticks does the chip need to count to make a second?
+1s/64us ~= 15625 ticks...so when you are configuring OCRxA or OCRxB you'd make the number 15625 ticks!
+Obviously the numbers change based on the prescaler you decide to choose!
+
+                = = = = = = = = = = = = = = = = = = 
+                      Setting Up the Timers
+                = = = = = = = = = = = = = = = = = =
+Using interrupts is the most common way to react on timer events. Independent of the different features of these timers, they all have two things in common.
+The timer has to be started by selecting the clock source and, if interrupts are used, they have to be enabled.
+
+[Shared Registers]
+If the same registers are used in the interrupt serive routines as in the main code, these registers have to be saved at the beginning of the ISR and restored at the end of 
+the ISR. If not all the 32 registers are needed in the application, the save and restore operations can be avoided by using separate registers in the main code and the ISR.
+It is also very important to remember to store the Status Register(SREG), as this is not automatically done by the interrupt handler, BUT is done by your compiler!
+
+[Example 2: Timer1 Input Capture Interrupt]
+The 16-bit timer1 is a synchronous timer. This means that it is clocked by the system clock, a prescaled system clock or an external clock which is synchronized with the system clock.
+To ensure that the 16-bit registers of the Timer1 are written and read simultaneously, a temporary register(Temp) is used.
+This makes it necessary to access these registers in a specific order.
+for example: A read operation of a 16-bti register can look like this....
+**
+lds     r16, TCNT1L
+lds     r17, TCNT1H
+;when reading the TCNTx register you need to store the values lowbyte then the high byte{2 bytes = 16 bits}
+**
+AS for the write operation...
+**
+sts     TCNT1H,r17
+sts     TCNT1L,r16
+**
+
+The C Compiler automatically handles the 16-bit I/O read and write operations in the correct order."
+But as the title says this deals with external capture {basically one of the pins of the MCU are being watched by the MCU and if something happens...typically a pulse it alerts the interrupt 
+vector} thus....
+
+[Example3: Timer2 Asynchronous Operation]
+Ideally the setup looks something like this...
+**
+void init_Ex3(void){
+    //select clock source as crystal on TOSCn pins <---i guess this has to do with pcb layout/pin setup?
+    ASSR |= 1<<AS2; //check out the datasheet the ASSR register has the AS2 pin which basically either chooses an external oscillator or not
+    //clear timer on compare match. Toggle OC2A on Compare Match
+    TCCR2A = (1<<COM2A0) | (1<<WGM21); //<---check out the datasheet currently on Compare Output Mode, non-PWM mode{toggle OC2A register on compare match}, with CTC mode on the Waveform generation
+    //Timer Clock = 32768 Hz/1024 <---since these guys are using an external source it might be referencing 32kHz
+    TCCR2B = (1<<CS22)|(1<<CS21)|(1<<CS20); //1 1 1 = clkT2S/1024(from prescaler)
+    //set output compare value to 32. Output pin will toggle every second
+    OCR2A = 32; //since timer2 is literally an 8 bit timer its registers aren't really that big....2^8-1=255 possible values
+    //
+    //Wait till registers are Ready
+    //Refer ATmega328p datasheet section
+    //'Asynchronous Operation of Timer/Counter2'
+    //
+    while((ASSR & (1<<OCR2AUB) | (1 << OCR2BUB) | (1 << TCR2AUB) | (1 << TCR2BUB) | (1<<TCN2UB)));
+    //clear pending interrupts
+    TIFR2 = (1<<TOV2) | (1<<OCF2A) | (1<<OCF2B); //OCF2A is cleared by writing a logic one to the flag. When the I-bit in SREG, OCIE2A 
+    //enable timer 2 output compare match interrupt
+    TIMSK2 = (1<<OCIE2A);
+    //enable OC2A pin as output
+    DDRB |= (1<<OC2A_PIN);
+}
+**
+then conduct the implementation of the interrupt service routine. this routine will be executed with every output compare event.
+**
+ISR(TIMER2_COMPA_vect){
+    //toggle a pin to indicate compare interrupt
+    PORTB ^= (1<<USER_LED);
+}
+**

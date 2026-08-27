@@ -1,0 +1,35 @@
+                *   *   *   *   *   *   *   *   *
+                     Pulsed Width Modulation
+                *   *   *   *   *   *   *   *   *
+Now that we know a bit about we can start trying out some cool stuff like PWM!
+PWM is an abbreviation for Pulse Width Modulation. In this mode, the timer acts as an up/down counter.
+This means that the counter counts up to its maximum value and then clears to zero. The advantage of the PWM
+is that the duty cycle relation can be changed in a phase consistent way.
+
+If the PWM is configured to TOGGLE the Output Compare Pin (OCx), the signal at this pin can look like what you see in
+"Output Signal of PWM"
+A low-pass filter at the output pin combined with the relative high speed of the PWM will cause a constant voltage level
+instead of a square wave signal as the output signal.
+VAVERAGE = (VHIGH*(x) + VLOW*(y))/(x+y)
+where
+x=OCRx*2
+y=(MaxVal-OCRx)*2
+
+[Example 4: Timer2 PWM Generation]
+This examples shows how to generate voltages between VCC and GND at the output pin of the PWM (PB3/OC2A).
+To observe this, PB3 should be connected to an LED. This PWM output signal has a duty relation of 1/8 to 7/8 (OCR2A = 0xE0)
+The following initialization routine shows how to set up such a system...
+**
+void init_Ex4(void){
+    //enable non inverting 8-bit pwm
+    TCCR2A = (1<<COM2A1) | (1<<WGM21) | (1<<WGM20); //initiating Fast PWM mode with WGMxx bits then conducting Clear OC2A bit on compare match, set OC2A at BOTTOM(non inverting mode)
+    //timer clock = i/o clock
+    TCCR2B = (1<<CS20);//no prescaling at all!
+    //set the compare value to control duty cycle
+    OCR2A = 0xE0; //pretty sure this is 224? so.....87% duty cycle?
+    //enable timer 2 output compare match interrupt
+    TIMSK2 = (1<<OCIE2A);
+    //set the OC2A pin as output
+    DDRB |= (1<<OC2A_PIN) <---which is whatever one you chose! which i guess is PB3? which is also D11
+}
+**
