@@ -33,3 +33,92 @@ void init_Ex4(void){
     DDRB |= (1<<OC2A_PIN) <---which is whatever one you chose! which i guess is PB3? which is also D11
 }
 **
+But that is a simple implementation of the FAST PWM implementation of the AVR chip, we might need other PWM applications
+for differnet purposes but for now the results are pretty standard and expected by the PWM signal.
+Here are some of its summaries for each type.
+
+[Fast PWM Mode]
+Fast PWM works the same way as the normal counter. The Control Logic receives the signal and increments the TCNTx register. When a match
+is detected the OCFnx flag is set and signal is sent to the Waveform Generator.
+The Waveform Generator then changes the state of the CNx pin(the state is determined by te selected mode...and obviously each timer has its
+own dedicated pins).
+When the TCNTn register passes the TOP value (0xFF or OCRnA....basically either the overflow or your compare number you placed in the OCRnA register)
+it simply overflows back to 0, at the same time the OCFnx flag is set.
+The OCFnX flag can be configured to trigger an interrupt. The OCFnx flag can be cleared by software,, but as always is cleared automatically when an
+interrupt request is triggered.
+
+*-Due to the high frequency of this mode it is best left for DAC, fading LEDs, rectification and Power Regulation-*
+
+[Phase Corrected PWM]
+The phase corrected mode counts up until it hits the TOP value(FIXED, OCRnA or ICRn...which the ICRn might just be external captire of the pins?)
+then starts to count down until it hits the BOTTOM(0).
+The Control Logic receives the signal and increments the TCNTn register. When a match is detected the OCFnx flag is set and signal is sent to the Waveform
+Generator.
+The WGM then changes the state of the OCNx pin(clear,toggle,etc determined by by COMxAx bits in TCCRxA registers).
+When the TCNTn register hits the TOP value the OCFnx flag is set.
+The OCFnx flag can be configured to trigger an interrupt. The OCFnx flag can be cleared by software, but is automatically cleared when interrupt request is
+triggered.
+
+This mode can be inverted or non-inverted.
+In the non-inverting mode, the OCn pin is LOW on the Compare Match between TCNTn and OCRnx, and HIGH on the Compare Match while counting down.
+(and vice versa)
+{recommended to be used in motor control.....but not entirely sure why?}
+
+In either case, the PWM logical block is necessary to get you intermediate voltages that isn't just 3V3 or GND.
+It short, PWM toggles the logical output ON and OFF very fast, so fast that whatever is attached to the output cannot fully react.
+But take notice to this! If you make a PWM signal and you grab an osciliscope to measure the at the output pin what you'll read is most defenitiely the logical
+high and low of the PWM logical block.....but those look like square waves....
+In most cases we typically DO want an actual sinusoidal wave....albeit DC-to-AC inverter is a very good example.
+BUT for that to happen you need a medium or some sort of load to filter out or "average" out those pulses!
+You see take an LED for an example, you can drive well above 6Hz and hit the 100MHz BUT the LED itself does not really change, what changes is your eye seeing the
+brightness or dimness of the LED and that changes WITH frequency.
+Your eyes somehow in someway average out those pulses to have an AC output of the LED brightness.
+Motors work in the exact same way, turn the current on for a some time the induced voltage begins to rise, turn it off at the right time and the induced voltage rises
+BUT in the opposite direction looking like this {induced voltage with respect to TIME in seconds or something like that....}
+
+      ----                        ----
+    --    --                    --
+  --        --                --
+--            --            --              .... and so on
+                --        --
+                  --    --
+                    ----
+But these reactions times as mentioned before is super dependent on the duty cycle of your PWM signal{not just frequency!}. Say  your frequency is 10kHz PWM for an LED with a duty cycle of
+230/255~=90%
+and one with
+150/255~=59%
+You can tell that the 90% duty cycle will be "brighter" than the 59% duty cycle because the LED is one 90% of the time!
+
+Now you by now that the Timer Peripherals have dedicated Pins that conduct the Compare Mode toggling of your  OCAx something pin which is a really nice feature since all you gotta do is
+set the pin as an output and the chip does the rest for you!
+But you'll see that there are a selected few that does this feature! To toggle the regular pins just allow the interrupt flag enabled and conduct your ISR routines to do the bit toggling for
+you!
+Something like this....
+**
+static inline void initTimer0(void){
+    TCCR0B |= (1<CS01) | (1<<CS00);
+    TIMSK0 |= ((1<<OCIE0A) | (1<<OCIE1B));1
+    TIMSK0 |= (1<<TOIE0);
+    sei();
+}
+ISR(TIMER0_OVF_vect){
+    LED_PORT = 0xFF;
+    OCR0A = brightnessA;
+    OCR0B = brightnessB;
+}
+ISR(TIMER0_COMPA_vect){
+    LED_PORT &= 0b11110000;
+}
+ISR(TIMER0_COMPB_vect){
+    LED_PORT &= 0b00001111;
+}
+**
+
+Take a look at the code!
+Everytime the overflow flag bit is toggled it know that LED_PORT = 0xFF
+and what the registers should be compared to(whatever value is brightnessA/B)
+When the TCNTn counter does reach a brightness level of some kind it either turns 1 half or the other half
+and voila no OCAn pins required!
+
+ In either case HOOK UP that PWM outpin to an osciliscope to read the square waves and you will be impressed by what you see!
+ 

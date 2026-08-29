@@ -5,7 +5,7 @@
 FILE uart_output =
     FDEV_SETUP_STREAM(UART_transmit_char, NULL, _FDEV_SETUP_WRITE);
 volatile uint16_t eight_bit_tick_counter = 0;
-//going to some PWM LED!
+//going to make some PWM LED!
 void initPWM(void){
     //initiating FAST PWM mode!
     TCCR0A = (1<<WGM01) | (1<<WGM00) | (1<<COM0A1); //then conducting non-inverting mode...not sure what that means!

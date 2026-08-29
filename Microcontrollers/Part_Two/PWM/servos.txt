@@ -1,0 +1,67 @@
+                *   *   *   *   *   *   *   *   *
+                                Servos
+                *   *   *   *   *   *   *   *   *
+Cool we got handle some pretty neat tricks from our little AVR chip but we want to see some action with it!
+An easy way to do it is using our PWM skills to aid in making a servo move.
+A servo can is nothing more than a motor-driven system with a feedback element built in. You see if you open up a standard
+hobby servo, you will almost always find three core components: a DC motor, a controller circuit, and a potentimeter{of course the components
+can change! For example the DC motor can be swapped out for a BLDC motor!pretty cool!} or similar feedback mechanism.
+The DC motor is attached to a gearbox and output/drive shaft to increase the speed and torque of the motor.
+The DC motor drives the output shaft. The controller circuit interprets signals sent by the controller, and the potentiometer acts as
+the feedback for the controller circuit to monitor the position  of the output shaft. Nearly all hobby servos have a standard three pin
+configuration for the wires, which is usually Power,signal,gnd. In that order specifically....
+
+Now in order to control said servo to a position you desire, the controller needs to send a precisely timed signal for the servo to interpret.
+Typical hobby servos expect to see a pulse every 20ms, and the width of this signal determines the position.
+This width is usually between one and two milliseconds. This type of signal control is frequently referred to as PWM{Pulse Widht Modulation}.
+
+Now do consider that this is A MOTOR+some IC so obviously YOU ARE GOING TO NEED TO POWER IT!
+Now how much completely depends on the servo you choose and the application at hand.
+Most hobby servos work fine between the range of 5V to 6V but depending on the load you got you can check your datasheet for your appropriate
+motor and see how much current is required to be supplied to allow the operation you are about to conduct.
+Ex)
+When look at some quick specs here for the DS3218 Pro-6.0V 20kg High Speed Servo
+You'll see that the Idle current is roughly 4mA@5V and 5mA@6.8V
+Operating speed is 0.12s/60 degreeds@5V  and 0.10s/60 degrees @ 6.8V
+
+It's pulsed width range is 500-2500us{basically end to end! so if you want servo to be far left you gotta do 500us PWM and far right 2500us and neutral is 1500us}
+So stuff like that you just have to keep an eye on!
+
+You can even get them in different sizes and apply different accessories on them to give larger extensions{shaft extensions} or simply spline counts which
+essentially are just the teeth on the head of the servo.
+
+                *   *   *   *   *   *   *   *   *
+                    Controlling Servos [PWM]
+                *   *   *   *   *   *   *   *   *
+The feedback circuit inside a servo is based on comparing two voltages: one that is proportional to the control signal that you've sent, and one that is proportional
+to the motor shaft's pointing direction. Every time the servo circuit recieves a pulse, it turns its motor for a little while in the right direction to make the two
+voltages more equal.
+ 
+At least in terms of being able to measure the positionish of the servo a potentimeter kinda dictates that by acting as a voltage divider to the control unit of the servo.
+Obviously with different voltage readings you can essentially dictate those as the different positions of the servo!
+Once you got a control signal going into the control unit of the servo, the IC starts charging a capacitor defined by the length of the pulse and once that pulse hits low, a
+voltage will appear across the capacitor because well...in essence you charged it up!
+
+The motor potentimeter voltage and the integrated control pulse voltage are then fed into a comparator, which outputs a high voltage level if the first input voltage is higher
+than the second, and a low voltage otherwise. This sort of dictates the control for the motor.
+{put it like this our goal is to match the voltage of the potentimeter and our capacitor is kind of like our current state because it reflects that of the control signal.
+if we see the voltage of the potentimeter is higher than that of the cap. well we send a high voltage to the DC motor to catch up to it. if its below well we simply stop sending
+signal for the motor to go forward and instead go backwards.
+}
+this obviously introduces the idea of overshooting and undershooting{PID stuff!} and thus the control unit of the servo basically allows something called a dead band where the position
+you aim for has a relative range to be considerded "correct"
+ex)
+your goal is 90 degress so the deadband range might be something like 
+91-90-89 because this is more or less 90 degrees{this is an EXAMPLE!}
+
+So servos need a pulse between 1ms and 2ms long, and they need this pulse repeated regularly rouhgly every 20ms{pretty sure the DS3218 needs a operating frequency of 50-330Hz but need more
+info. on this...}
+By far the easiest and most accurate way to drive a servo is simply to hook it up to the output from Timer 1, the 16-bit timer, set the timer's period to be 20ms, and then use the PWM output
+pins and register to send the pulses. You can do this easily with up to two servo motors, because the timer has two dedicated output compare pins.{whaa/??!!}
+
+In terms of the code all you really need to do is setup your timer, maybe conduct a fast PWM mode and setting up your specific length of the time your going to send your pulses and then the
+actual frequency of your pulses.....
+ex)
+say you want to send a 500us pulses in a 20ms interval one register will hold the lenght of the time interval and the other register will contain the actual pulse frequencies.
+
+so you are basically doing two things ensuring that the pwm hits the right duty cycle and then making a timer that determines the time interval of said duty cycle 
