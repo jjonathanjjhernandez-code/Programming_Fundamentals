@@ -35,6 +35,8 @@ int main(void) {
             }else{
                 OCR1A = OCR1A + 2;
             }            
+        }else{
+            OCR1A =3000;
         }
         vx_ready = false;
     }
