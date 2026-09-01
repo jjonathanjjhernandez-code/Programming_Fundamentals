@@ -1,4 +1,4 @@
-#define BAUD 9600
+#define BAUD 9600 //you literally DO have to define the BAUD RIGHT HERE it has someting to do with the util/setbaud.h header! 
 #include <avr/io.h>
 #include <stdbool.h>
 #include <util/delay.h>

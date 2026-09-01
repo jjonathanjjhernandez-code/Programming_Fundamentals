@@ -2,7 +2,7 @@
 #include <avr/io.h>
 #include <util/delay.h>
 #include <avr/interrupt.h>
-#include "uart-printf.h"
+#include "uart-printf-scanf.h"
 FILE uart_output =
     FDEV_SETUP_STREAM(UART_transmit_char, NULL, _FDEV_SETUP_WRITE);
 volatile uint16_t eight_bit_tick_counter = 0;

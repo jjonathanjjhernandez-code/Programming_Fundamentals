@@ -11,7 +11,7 @@ For the digital input of the swithch(basde on the KY-023 dual axis joystick) we 
 #include <avr/io.h>
 #include <util/delay.h>
 #include <stdbool.h>
-#include "uart-printf.h"
+#include "uart-printf-scanf.h"
 #include <inttypes.h>
 #include <avr/sleep.h>
 #include <avr/interrupt.h>

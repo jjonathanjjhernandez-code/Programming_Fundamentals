@@ -101,14 +101,13 @@ SPI, I2C, CAN bus. Whereas higher end serial buses include USB, SATA, and PCI Ex
                 ==========================================
                         Serial Communication: UART
                 ==========================================
-Now to get to the pint. Basically put one side sends a signal by outputting high and low voltage pulses on a wire that connects it to the other devivce. The other side,
+Now to get to the point. Basically put it like this: one side sends a signal by outputting high and low voltage pulses on a wire that connects it to the other devivce. The other side,
 in input mode, listens to the voltages on the wire.
 [Via a standard both devices must agree on the communication interface].
 The rules for encoding data into voltage pulses and decoding the voltage pulses back into data is called a serial protocol.
 
 In serial communication, typically one wire is used for transmitting the bits and the second wire can be used to receive but the amount of wires and implementation 
-completely depends on the application adn system 
-requirements at hand.
+completely depends on the application and system requirements at hand.
 By definiton, UART is a hardware communication protocol that uses asynchronous(no clock signal to syncrhonize the output bits from transmitting the device going to the 
 receiveing end) serial communication with configurable speed.
 

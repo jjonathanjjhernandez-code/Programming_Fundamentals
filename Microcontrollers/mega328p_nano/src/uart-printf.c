@@ -1,4 +1,4 @@
-#include "uart-printf.h"
+#include "uart-printf-scanf.h"
 FILE uart_output =
     FDEV_SETUP_STREAM(UART_transmit_char, NULL, _FDEV_SETUP_WRITE);
 volatile bool button_press = false; // need to make it volatile type for immediate changes

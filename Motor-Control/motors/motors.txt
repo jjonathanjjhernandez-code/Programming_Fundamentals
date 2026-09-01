@@ -1,0 +1,12 @@
+                + + + + + + + + + + + + +
+                        BLDC Motors
+                + + + + + + + + + + + + +                
+Now for the longest time {roughly three months} i have tried my hardest to understand the concepts of spinning a BLDC motor and the circuit design
+and implementation of said application. BUT for the life of me could not understand or implement said application for THREE MONTHS!
+However, I have learned a lot, it came off in pieces but little by little I was able to start putting two and two together. Seems like all we had to do
+was start with the motor!
+So what the heck is a brushless direct current motor anyway? You see them practically almost everywhere: home appliances{vaccus, air conditioners, smoothie makers},
+power tools{power drills, saw machine0}, transportation{small e-bikes, e-scooters,maybe evs?} and so on.
+I guess in simple terms its nothing more than moving magnets. Think of a cup cut in half with strong permanent magnets on its outer rim{outer runner} and turn those around,
+in way that is bldc motor. Now the question how do we spin it? Well, now instead of you having to spin those motors yourself, right there in the middle of the cup where there
+is some space

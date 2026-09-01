@@ -1,36 +1,67 @@
-//let's see if we can do this servo drive just right!
-#include <avr/io.h>
-#include <util/delay.h>
-#include <avr/interrupt.h>
-#include "uart-printf.h"
-#include <stdbool.h>
+// let's see if we can do this servo drive just right!
+
+#include "servo.h"
 FILE uart_output =
     FDEV_SETUP_STREAM(UART_transmit_char, NULL, _FDEV_SETUP_WRITE);
-bool output_or_not = false;
-    //we'll try doing so using the 16-bit timer 1
-void initServo(void){
-    TCCR1A |= (1<<COM1A1);//everytime the time interval is done the OC1A/OC1B pin stops pulsing based on compare match!
-    
-    //waveform generation settings
-    TCCR1B |= (1<<WGM13) | (1<<WGM12);
-    TCCR1A |= (1<<WGM11);
-    //
-
-    TCCR1B |= (1<<CS11);// we are doing 16MHz/8 ~=2MHz which is close to .5us as our counter to determine then the ticks.... 
-    ICR1 = 15625;// we do our desired frequency operation say 128Hz(DS3218 has operating range of 50-330Hz) and thus 1/128 ~= 7.8125ms and that divided by 0.5us gives us roughly 15625 ticks that the chip needs to count
-//now this here is the counter for the time interval{period} of the pulses but it is now time to configure our pulses
-    
-    OCR1A = 1000;//this should ALWAYS be measured in ticks and is super dependent on the pre-scaler you decide to choose!
+volatile uint16_t eight_bit_tick_counter = 0;
+uint16_t timer_s = 0;
+volatile bool channel_switch = false; //global variable to check channel ADC1 & ADC2!
+volatile uint16_t VRx_value;//ADC1
+volatile uint16_t VRy_value;//ADC2
+volatile bool vx_ready = false;
+volatile bool vy_ready = false;
+int main(void) {
+  initUSART();
+  initServo();
+  init_eight_bit_timer();
+  initADC0();
+  initADCinterrupt();
+  stdout = &uart_output;
+  DDRB |= (1<<PB1);
+  printf("Time to move some servos!");
+  while (1) {
+    if (eight_bit_tick_counter == 61) {
+      timer_s++;
+      eight_bit_tick_counter = 0;
+    }
+    if(vx_ready){
+        if(VRx_value <=400){
+            if(OCR1A==2000){
+            }else{
+                OCR1A = OCR1A - 2;
+            }
+        }else if(VRx_value >= 600){
+            if(OCR1A==4000){
+            }else{
+                OCR1A = OCR1A + 2;
+            }            
+        }
+        vx_ready = false;
+    }
+  }
+  return 0;
 }
-int main(void){
-    initServo();
-    stdout = &uart_output;
-    if(output_or_not){
-        DDRB |= (1<<PB1); //considerded as the OC1A pin on the pinouts!
-    }
-    DDRB &= ~(1<<PB1);
-    while(1){
+ISR(TIMER0_COMPA_vect) { // gotta use the COMPA since we are using register A
+  eight_bit_tick_counter++;
+}
+//Note to self if we are to EVER use a component that needs a different voltage supply from that of the other component ALWAYS ALWAYS
+//reference your MCU ground pin to that external power supply whatever it might be!
 
-    }
-    return 0;
+//Also we need to figure out how to allow nice and smooth pulses!
+
+ISR(ADC_vect){//&&Vector #: 22   &&Program Address:0x002A
+//Interrupt Vector:ADC----ADC Conversion Complete
+        if(channel_switch){//if true start with ADC2 else ADC1
+            VRy_value = ADC;
+            ADMUX = (0b11110000 & ADMUX) | (0b00000001);
+            ADCSRA |= (1<<ADSC);
+            vy_ready = true;
+            channel_switch = !channel_switch;
+        }else{
+            VRx_value = ADC;
+            ADMUX = (0b11110000 & ADMUX) | (0b00000010);
+            ADCSRA |= (1<<ADSC);
+            vx_ready = true;
+            channel_switch = !channel_switch;
+        }
 }
