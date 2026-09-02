@@ -28,12 +28,12 @@ int main(void) {
         if(VRx_value <=400){
             if(OCR1A==2000){
             }else{
-                OCR1A = OCR1A - 2;
+                OCR1A = OCR1A + 2;
             }
         }else if(VRx_value >= 600){
             if(OCR1A==4000){
             }else{
-                OCR1A = OCR1A + 2;
+                OCR1A = OCR1A - 2;
             }            
         }else{
             OCR1A =3000;
