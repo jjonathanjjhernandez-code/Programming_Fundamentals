@@ -1,0 +1,200 @@
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+                    RPLIDAR A1---A1M8
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+The RPLidar A1 is a low cost 360 degree 2D laser scanner made by SLAMTEC.
+The system can perform 360 degree scan within 12-meter range.
+The produced point cloud data can be used in mapping, localization and object/enviornment modeling.
+
+The scanning frequency reached is 5.5Hz when 1450 points each round. But it can be configured to go to
+10Hz max(however, you'd have to supply the motor on there 9V...not sure about the current draw..).
+
+This RPLIDAR A1 is basically a laser triangulation measurement system. It can work excellent in all kinds of indoor
+enviornment and outdoor enviornment without direct sunligh exposure.
+
+The Lidar is separated into two parts:
+    --Range Scanner System{which probably has the optoelectronics inside...}
+    --Motor System{hmmmmm....interesting, maybe hackable???}
+    --Communication Interface: UART/USB
+
+The system will adjust frequency of laser scanner automatically according to motor speed.
+All you got to do is be able to transmit those real speeds via the communication interface!{and of course supply enough power for motor
+which does appear to be Brushed??}
+
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+                            Mechanism
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+The RPLiDAR emits modulated infared laser signal and the laser signal is then reflected by the object to be detected.
+The returning signal is sampled by vision acquistion system in RPLIDAR A1 and the DSP embedded in RPLIDAR A1 , once it begins processing the sample data
+and output distance value and angle value between object{basically a red dot} and RPLIDAR A1, the data will be sent via communication interface.
+{This means on the lidar itself there should be a like a central point....because why else list the angle?!}
+The high-speed ranging scanner system is mounted on a spinning rotator with a built in angular encoding system.{doing a full 360}
+
+RPLIDAR A1 system uses a low power(<5mW) infared laser as its light source, and drives it using modulated pulse. The laser emits in a very short time frame
+which can make sure it is safe to be around for humans and pets.{stay within 21 CFR 1040.10 and 1040.11 standards}
+
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+                            Data Output
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+During the working process, the Lidar will output the sampling data via the communication interface. And each sample point data contains the information in the table.
+If you need a detailed data format and communication protocol, contact SLAMTEC??
+
+The Lidar will output sample data continously and it contains the sample point data frames. Host systems can stop Lidar output data by sending STOP command via
+UART. When using 4k and above sampling frequency the transmission data structure is different. Contact SLAMTEC for more info.?
+
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+                       Communication Interface
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+The lidar uses 3.3TTL serial port(UART)as the communication interface. Other communication interface such as USB can be customized according to customer's requiremnet....
+{seems like this thing just needs an external UART/USB PCB....neat!}
+Baud Rate: 115200 b/s
+Working Mode: 8N1{Asynchronous Mode: eight bits, NO partity bit, and one stop bit...do a recap of UART communication if need be!}
+Make sure your inputs and outputs are 3.3 Volts{most MCUs are....}
+
+Motor Interface
+    --5V_MOTO-**-Power Type Input-**-Power for Lidar Motor-**-Typical value 5V{100mA average} but can be configured for 9V
+    --CTRL_MOTO-**-Digital Input-**-Enable signal for Lidar Motor via PWM control signal-**- Ranges from 0V to 5V_MOTO
+    --GND_MOTO-**-Power Type Input-**-GND for lidar Motor
+
+Core Interface
+    --VCC_5-**-Power Type Input-**-Power for Lidar Scanner Core-**-5V{ranges from 300-500 mA depending on work!}
+    --TX-**-Digital Output-**-Serial Scanner Output
+    --RX-**-Digital Input-**-Serial Scanner input
+    --GND-**-Power Type Input-**-GND for Lidar Scanner Core
+Try to maintain the system around 20 Celsius {68F}
+{Check out Power Supply and Consumption Table}
+
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+                 Self-Protection and Status Detection
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+To make sure the Lidar laser is always working in the safety range(<5mW) and any other damage to the Lidar, the Lidar comes with a laser power
+detection and sensor health check feature. Lidar will shut down, and the laserr will stop working when any of the errors are shown....
+    --Laser Transmit Power exceeds limited value
+    --Laser cannot power on normally
+    --Scan speed of Laser Scanner system is unstable
+    --Scane speed of Laser Scanner system is too slow
+    --Laser signal sensor works abnormally
+!!!Host systems can inquiry the Lidar status through communication interface and restart Lidar to try to recover from error.
+
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+                Interface Protocol and Application Notes
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+The host system communicates with the RPLIDAR core system via the TTL UART serial interface. Based on the communication protocol, the host
+system can retrieve the scan data, the device status, the health information, etc and manipulate the LIDAR working mode.
+{The datasheet will provide details of the electrical characterisitics and pinouts}
+
+Now if you want to avoid the headaches aim for the Software Development Kit{SDK} from their github!
+https://github.com/slamtec/rplidar_sdk
+
+[Protocol Basics]
+The RPLIDAR uses a non-textual binary data packet based protocol to communicate with host systems. And all the packets transmitted on the interface channel share uniform
+packet formats.
+A communication session is ALWAYS INITIALIZED by a host system, via an MCU, PC or anything that can TALK with it!
+The RPLIDAR itself will not send any data out automatically after powering up.
+If a data packet is sent from host systems to Lidar, such a packet is called a Request.
+Once an RPLIDAR receives a equest, it will reply the host system with a data packet called a Respone.
+
+RPLIDAR will only start performing related operations required by a host system once after it receives a request.
+If RPLIDAR should reply to the host system, it will send one or more required response packets.
+
+In order to let the Lidar start scanning operation and send out data, a host system is required to send a pre-defined Start Scan request packet to RPLIDAR. RPLIDAR will start
+scanning operation once after it recieves the request and the scan result data is sent out to the host system continously.
+There are three different request/response modes based on the related request types:
+//  *   *   *   *   *   Request/Response Mode    *   *   *   *   *//   
+{In this mode of operation the host system should prevent sending extra request packets if the LIDAR is BUSY handling the current request and has not replied to host system yet.
+These extra request packets WILL be discarded by the Lidar protocol stack and the Lidar will not have any chance to handle it.
+Acutally, now that I think about it this is probably the request the lidar doc. was mentioning before....hmmmm this might be it???
+}
+//  *   *   *   *   *   Single Request-Multiple Response Modes    *   *   *   *   *//   
+{In this mode the Lidar is asked to perform the scan operation. After a host system sends a Start Scan Request, the RPLIDAR will take distance scan measurement continously.
+Once a scan measurement sample is retrieved, its related result data(distance,angle value) will be sent out as individual response packets.
+
+Host systems are only required to send a single request packet with this mode but will recieve a continous response packet stream
+with multiple response packets.
+The host system can interrupt RPLIDAR and let it leave the multiple responses mode by sending a STOP request or any request packet.
+After leaving the multiple repsonses mode, the RPLIDAR will continue to handle the request which has interrupted it.
+
+The request packets sent by the host system during multiple responsers mode will be cached by the lIDAR protocol stack. After leaving the multiple responses mode, LIDAR will handle
+the cached request.
+}
+
+//  *   *   *   *   *   Single Request-No Response    *   *   *   *   *//   
+{For requests like STOP, RESET Core, RPLIDAR uses the single request- no response mode since there is no need to reply to the host system.
+Host systems should wait for a period of time before sending another request since LIDAR needs time to process the request operation. Otherwise, the 
+request may be discarded by the lIDAR protocol stack.
+}
+
+[Request Packet's Format]
+All request packets sent by a host system share the following common format. Little endian byte order used.
+Transmission Order
+1.Start Flag{1 Byte}
+2.Command{1 Byte}
+Optional
+3.Payload Size{1 Byte}
+4.Payload Data{0-255 Bytes}
+5.CheckSum{1 Byte}
+(Must be submitted within 0-5 seconds)
+A fixed 0xA5{literally one bye} is used for request packet, RPLIDAR uses this byte as the identification of a new request packet. An 8-bit command field MUST follow the start flag byte.
+
+Thyen you have the option of submitting a payload data???
+Cgeck sum is calculated using following equation..
+Checksum = 0 XOR 0xA5 XOR CmdType XOR Payload Size XOR Payload[0]........XOR Payload[n]
+**We can double check what this means later!!**
+All bytes within the request packets MUST be sent within the 5 second time frame.
+
+[Response Packet's Format]
+All the response packets are divided into two classes: response descriptors and data responses.
+If the current request received by RPLIDAR requires a response, RPLIDAR will always send a response descriptor packet FIRST and then send one or more data response packets based on the type
+of requests sent by the host system.
+Only one response descriptor packet will be sent out during a request/response session. 
+The response descriptors carry the information of the incoming data responses. All the response descriptors share
+a similar format.
+1. Start Flag1 (1byte 0xA5)
+2.  Start Flag2 (1byte 0x5A)
+3.  Data Response Length(30 bits)
+4.  Send Mode (2 bits)
+5.  Data Type (1byte)
+A response descriptor uses fixed two bytes' pattern 0xA5 0x5A for the host system to identify the start of a response descriptor.
+The 30bit Data Response Length field records the size of a single incoming data response packet in byte
+(All the incoming data response packets within a request/response session should have the same format and length). 
+The 2bits Send Mode field describes the request/response mode of the current session.
+Send Mode
+    0x0: Single Request - Single Resposne Mode, Lidar will send only one data response packet in the current session
+    0x1: Single Request - Multiple Response Mode, Lidar will continously send out data response packets with the same format in the current session.
+The 1 Byte Data Type field describes the type of incoming data response packets. It is related to the type of the request RPLidar just received.
+Host systems can choose different data receiving and handling policy based on this field.
+Each type of response data has its own data format and packet length based on its type.
+
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+        Major Working States and Transition Conditions
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+RPLIDAR has the following 4 major states: Idle, Scanning, Request Processing and Protection Stop State.
+[Idle]
+The idle state is the default state of the Lidar which will be entered automatically after powering up or reset. Both the laser diode and the measurement system are
+disabled in this state, and the whole system is in power saving mode.
+[Scanning]
+Once RPLIDAR enters the scanning state, the laser diode and the measurement system will be enabled and RPLIDAR will start measuring distance and sending the result out
+continously.
+[Request Processing State]
+The Lidar enters into this state once it recieves request packets from the host system. During this process, the Lidar will NOT perform the scan operation and will NOT 
+send any data out. It will only send out response data if it is required based on the request.
+After the request has been processed, RPLIDAR will enter other status specified by the request.
+[Protection Stop State]
+Once the Lidar or if anything happens to it, it will stop the current operation and enter this state.
+A host system can still communicate with the Lidar to query its working status. But the host system CANNOT
+ask the RPLIDAR to perform scan operations unless the host system sends a Reset Request to reboot the RPLIDAR core system.
+
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+                         Scanning Status
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+RPLIDAR always checks the motor rotation status when working in the scanning state.
+Only when the motor rotation speed becomes stable, RPLIDAR will start taking distance measurement and sending out the result data to the host system.
+[Scan Mode and Measurement Frequency]
+RPLIDAR's following performance may differ in different scanning modes:
+    --Measurement Frequency
+    --Max Measurement Distance
+    --Sensitivity of detection
+    --Enviornment light elimination
+{I'll include the table but it seems like we'll aim for the Boost Scan Mode: Performance Priority Mode}
+A new command GET_LIDAR_CONF has been added to help host system to enumerate all scan modes supported by a LIDAR device, as well as the performance parameters of each
+scan mode. This command can also be used to get "Typical Scan Mode" of a LIDAR, which is the recommended work mode for some SLAMTEC models.
+{P.S check out the Requests Table...pretty self-explantory}
