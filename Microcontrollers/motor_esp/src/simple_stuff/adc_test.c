@@ -1,11 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_log.h"
-#include "esp_adc/adc_oneshot.h"
-#include "hal/adc_types.h"
-#include <driver/gpio.h>
+
 /*
  *  *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   * *
                             Analog to Digital Converter
@@ -82,6 +75,14 @@ Using the KY-023 Module which is essentially a joystick....so this should be abl
 */
 // we will be using ADC1_0 which is on GPIO36
 //#define ADC1_CHANNEL_0 GPIO_NUM_36
+#include <stdio.h>
+#include <stdlib.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "esp_adc/adc_oneshot.h"
+#include "hal/adc_types.h"
+#include <driver/gpio.h>
 #define ADC_UNIT     ADC_UNIT_1
 #define ADC_CHANNEL  ADC_CHANNEL_0
 #define ADC_ATTEN    ADC_ATTEN_DB_12

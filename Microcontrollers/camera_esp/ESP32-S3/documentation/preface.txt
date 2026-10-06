@@ -1,0 +1,57 @@
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *
+                                    Camera ESP
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *    
+ESP32 - S3 is an MCU with integrated WI-FI launched by ESPRESSIF, which features strong properties and integrates
+rich peripherals. It can be designed and studied as an ordinary Single CHip
+Micyovo(SCM) chip, or connected to the internet and used as an internet of things.
+
+Essentially, we aere to use this module with a small little camera and see how far we go from there!!!!
+{ESP32-S3 Camera Module from FreeNOVE FCCID:}
+Seems like on the website that they provide.....http://freenove.com/fnk0085
+    --Component List
+    --Component Knowledge
+    --Circuit and Code
+
+ESP32-S3-WROOM-1 has launched a total of two antenna packages, PCB on boad antenna
+and IPEX antenna respectively. The PCB on-board antenna is an integrated antenna in the chip module itself, so it is convenient to carry and design.
+The IPEX antenna is a metal antenna derived from the integrated antenna of the chip module itself, which is used to enhance the signal
+of the module.
+
+Currently, we have two dev. board options which we currently have the N8R8 which has 8MB flash +8MB PSRAM
+
+Windows
+Check whether CH343 has been installed
+1.Connect your comp. and esp modyule with USDB cable
+2.Turn on main interface and check the Device Manager
+3.Underneath Ports(COM & LPT), check to see if the SERIAL CH343 COMx
+
+So, you probably don't need this driver stuff!!
+This should be pretty good to use with the pio!!!
+freenove-esp32-s3-n8r8               ESP32S3  240MHz       8MB      320KB   Freenove ESP32-S3 WROOM N8R8 (8MB Flash / 8MB PSRAM)
+
+[NOTES for GPIO]
+{Strapping Pins}-----There are four Strapping Pins for ESP32-S3: GPIO00, GPIO45,GPIO46,GPIO3
+With the release of the chip's system reset(power-on reset, RTC watchdog reset, undervoltage reset), the strapping pins sample the level and store it
+in the latch as "0" or "1", and keep it until the chip is powerd off or turned off.
+
+Each Strapping Pin is conneting to an internal pull-up/pull-down. Conneceting to high-impedance external circuit or without an external connection, a strapping pin's
+default value of input level will be determined by interal weak pull-up/pull-down.
+To change the value of the strapping, users can apply an external pull-down/pull-up resistor, or use the GPIO of the host MCU to control the level of the strapping pin
+when the ESP32-S3's power on reset is released.
+
+When releasing the reset, the strapping pin has the same function as a normal pin.
+By default, the ROM boot messages are printed over UART0(U0TXD pin) and USB Serial/JTAG controller together.
+The ROM code printing can be disabled through configuraiton register and eFUSE. {ESP32-S3 Technical Reference Manual}
+
+[PSRAM Pin]
+The module on the ESP32-S3-WROOM board use the ESP32-S3R8 chip with 8MB of external flash.
+When we use the OPI PSRAM, please note that the GPIO35-GPIO38 on the ESP32-S3-WROOM board will not be available for other purposes. When OPI PSRAM is not used, GPIO35-GPIO37 on the board
+can be used as normal GPIO.
+
+[SDcard pin]
+An SD card slot is integrated on the back of the ESP32-S3-WROOM board. We can use GPIO38-GPIO40 of ESP32-S3-WROOM to drive SD card.
+The SDcard of ESP32-S3-WROOm uses SDMMC, a 1-bit bus driving method, which has been integrated in the Arduino IDE, and we call the "SD_MMC.h" library to drive it.
+For details see the SDcard chapter!!!
+
+[USB Pin]
+In Micropython, GPIO19 and GPIO 20 are used for the USB function of ESP32S3, so they cannot be used as other functions.

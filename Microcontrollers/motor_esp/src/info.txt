@@ -1,0 +1,144 @@
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *
+                        Information on ESP Board
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *
+Here are the specs that I know about the ESP32 that I currently have and the dev board associated with it.
+I (270) chip_info: Chip model: ESP32 (1), cores: 2, revision: v3.1
+I (270) chip_info: Features: WiFi BLE BT Classic 
+I (270) chip_info: Flash size: 4 MB
+I (270) main_task: Returned from app_main()
+---- Closed serial port COM9 due to disconnection from the machine 
+Based on a DOIT ESP32 DEVKIT V1 with a chip that is closely resembeld to a ESP32-D0WD-V3
+*******Clock Specs********
+Clocks and Timers
+• Internal 8 MHz oscillator with calibration
+• Internal RC oscillator with calibration
+• External 2 MHz ~ 60 MHz crystal oscillator (40 MHz only for Wi-Fi/Bluetooth functionality)
+• External 32 kHz crystal oscillator for RTC with calibration
+• Two timer groups, including 2 × 64-bit timers and 1 × main watchdog in each group
+• One RTC timer
+• RTC watchdog
+***************************
+
+
+Now like any other SoC identify first your chip, then find the techincal reference manual/datasheet and then the associated dev board layout/manual
+and then finally if possibel find the associated application note/s on said framework of the programming piece you will be using....
+in the case of the ESPs it is primiarly the ESPIDF framework and the API is found over Here
+https://docs.espressif.com/projects/esp-idf/en/stable/esp32/index.html
+Now if you want a quick setup and not want to deal with the bootloader configurations and the setting up the espressif enviornment yourself it seems like there is a community
+who has dedicated doing that for you....the Platformio Extension on VSCode. Using their .ini files and setups for the different chips and boards they provide it becomes very much ease 
+of use!
+
+Here is what espressif themselves have to say about their little creation.....
+    ESP32 is a system on a chip that integrates the following Features
+        --Wi-Fi(2.4GHz band)
+        --Bluetooth
+        --Dual High Performance Xtensa 32-bit LX6 cores
+        --Ultra low power co-processor
+        --multiple peripherals
+Powered by 40nm tech, ESP32 offers excellent power efficiency, RF performance, security, and reliability, making it suitable for a wide range of application scenarios and power consumption requirements.
+Esperssif provides basic hardware and software resources to help application develops realize their ideas using the ESP32 series hardware. The software development framework by ESpressif is intended for development of IOT applications
+with Wi-Fi, Bluetooth, power management and several other system features.
+
+As you know, when relating to your favoriate MCU or device in general it starts off in the low level bits, like the registers and control bits that does the task you intend to do for the peripherals you want to mainpulate.....
+however, it appears the espressif envrionment has dedicated quite some time and effort into purposely making the ESP32 chip entirely useable in FreeRTOS enviornment.....
+Take a look at the way they organize their code.....
+    ---Main.C code
+    ---Driver API (driver/gpio.h,driver/i2c_master.h,driver/uart.h......etc)
+    ---HAL(hal/gpio.h, hal/i2c_hal.h,......etc)
+    ---Low Level (hal/esp32/include/hal/gpio_ll.hh)
+    ---Registers/silicon
+Now this is done on purpose. You see the epsressif enviornment WANTS you to use the FreeRTOS environment for ease of use and to manage the peripherals tasks you want to use....
+In a natural case, you'd typically would have to manage the ISR yourself and be consistent with your infinite loop, but....you are only human a mistake is bound to be prone and if a certain peripheral
+cannot get what it needs at the right place and time, things will break.
+That is why they use the Scheduler freeRTOS(this delves into the topics of semaphores and mutexes which could take a while....but they are basically ways for notify other peripheral tasks of either you are about to do something or expecting something)
+Of course, if you do intend to use low-level language for more features out of your peripheral the datasheet/tech. ref. manual will help immensely!
+And of course everything from there is what you want to do with your MCU, whatever the application needs to be! 
+*****Short Text from their site*****
+ESP-IDF provides several kinds of programming interfaces:
+    --C functions, structures, enums, type definitions, and preprocessor macros declared in public header files of ESP-IDF components. Various pages in the API reference sections of the programming guide contian descriptions of these functions, structures, and types.
+    --Build system functions. predefined variables, and options. These are documented in the ESP-IDF CMAKE Build System API(which YOU CAN avoid using the pio extension.....thank god for python!)
+    --Kconfig options can be used in code and int he build system (CMakelists.txt) files
+    --Host tools and their command line parameters are also part of the ESP-IDF interfaces
+ESP-IDF is made up of multiple components where these components either contain code specifically written for ESP chips, or contain a third-party (i.e, third-party component). In some cases, third-party components contain an "ESP-IDF specific" wrapper in order to provide
+an interface that is either simpler or better integrated with the rest of ESP-IDF's features. In other cases, third-party components present the original API of the underlying library directly.
+
+[Error Handling]
+Most ESP-IDF APIs return error codes defined with the esp_err_t type.
+but basically put whatever function you want to initialize or run you stuff in there and ensure that what comes out is something among the lines like ESP_OK
+
+[Configuration Structures]
+Correct initilization of configuration structures is an important part of making the application compatible with future versions of ESP-IDF
+Most initialization, configuration, and installation functions in ESP-IDF
+(typically named....._init(),....._config(),....._install() )take a configuration strucutre(that you fill up!) pointer as an argument like so.......
+**
+const esp_timer_create_args_t my_timer_args = {
+    .callback = &my_timer_callback,
+    .arg = callback_arg,
+    .name = "my_timer",
+};
+esp_timer_handle_t my_timer;
+esp_err_t err = esp_timer_create(&my_timer,&my_timer);
+**
+YOU MUST INITIALIZE ALL FIELDS OF THE STRUCTURE NO MATTER WHAT!!
+
+[Default Initializers]
+For some configuration structures, ESP-IDF provides macros for setting default values of fields:
+**
+httpsd_config_t config = HTTPD_DEFAULT_CONFIG();
+//HTTPD_DEFAULT_CONFIG expands to a designated initializer. Now all fields are set to the default values, and any field can still be modified
+config.server_port = 8081;
+httpd_handle_t server;
+esp_err_t err = httpd_start(&server,&config);
+**
+It is typically recommended to use default initializer macros whenever they are provided for a particular configuration structure.
+
+[Components in Example Projects]
+ESP-IDF examples contain a variety of projects demonstrating the usage of ESP-IDF APIs. In order to reduce code duplication in the examples, a few common helpers are defined
+inside components that are used by multiple examples. This includes components located in common_components directory, as well as some of the components located in the examples themselves.
+(just be wary that these are inside of repos. and can/will be changed over time!!!!)
+
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *
+                                API of the ESP32 Chip 
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *
+The One we are currently intereted in ....
+    --Peripherals API: The hardware-facing layer, this is where the driver API for every on-chip peripheral lives: GPIO, ADC, DAC,I2C,SPI,UART,I2S,LEDC,MCPWM basically anything taht talks directly to a physical pin
+    or on-chip block
+    --Networking APIs: Wifi driver, Ethernet, esp_netif, ESP-NOW, and lower-level networking glue like PPP/SLIP.
+    --Storage API: Any non-volatile storage, small key-value config storage, commonly used for Wi-Fi credentials, calibration values, etc, SPI FLASH API, Partitions API, FAT/SPIFFS filesystems, wear-leveling,
+    virtual filesystem component.
+    --System API: FreeRTOS Overview, ESP Timer, event loop library, power management, sleep modes, heap allocation/debugging, OTaA updates, logging library, eFuse manager, chip revision detection, POSIX support.
+and of course many more!
+
+
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *
+                                PIO Extension
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *
+What is Platformio?
+Platformio is a cross-platform, cross-architecture, multiple framework, professional tool for embedded systems engineers and software developers who write applications for embedded products.
+
+[Philosophy]
+Platformio's unique philosophy in the embdedded market provides developers with a modern integrated development environment(Cloud&Desktop IDEs) that work cross-platform, supports many different software
+development kits(SDKs) or Frameworks, and includes sophisticated debugging, unit testing, automated code analysis, and remote management. It is architected to maximize flexibility and choice by developers, who can 
+use either graphical or command line editors or both.
+
+Platformio is a must-have tool for professional embedded systems engineers who develop solutions on more than one specific platform. In addition, by having a decentralized architecture, Platformio offers both new and existing developers a
+quick integration path for developing commercial-ready products, and reduces the overall-time-to-market.
+
+The build system structure automatically tags software dependencies and applies them using a modular hierarchy that takes away the usual complexity and pain.
+Developers no longer have to manually find then assemble an environment of toolchains, compilers, and library dependencies to develop applications for a specific target.
+With Platformio, clicking the compile button will bring in all necessary dependencies automatically. it is analogous to if you were a furniture designer, and your CAD program had a “build” button that caused a robot to fetch all the necessary pieces and fasteners and correctly assemble them.
+
+[How does it work?]
+Simply put.....
+    --Users choose board/s they are interested in working with in the platformio.ini file
+    --Based on this list of boards, Platformio downloads required toolchains and installs them automatically
+    --Users develop code and Platformio makes sure that it is compiled, prepared and uploaded to all the boards of interest.
+and boom done!
+
+[Three layer model in Platformio]
+--Board (physical hardware definition: pins, flash size, upload speed)
+--Framework (arduino/espidf/mbed/zephyr/etc ----the API you code against)
+--Platform Bundles (toolchains + SDK packages----like the espressif, compiler etc)
+and as long as you understand everything else is just a perk!
+
+Now this is bare minimum that you would need to know!!
