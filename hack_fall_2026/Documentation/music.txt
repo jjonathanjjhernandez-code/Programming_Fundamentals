@@ -1,0 +1,89 @@
+    *   *   *   *   *   *   *   *   *   *   *   *   *
+                Playing J Dilla Music on a LM386
+    *   *   *   *   *   *   *   *   *   *   *   *   * 
+Okay dok here is the plan....
+based on what I currently have on me.....
+    --An ESP32-S3 WROOM N8R8 board with an SD card reader attached
+    --An ESP32-D0WD-V3 on a DOIT ESP32 DEVKIT
+Now, the ESP32-S3 will have the mp3 file that contains the music, but unfortantely this specific MCU does not
+have a dedicated DAC converter for music conversion.
+So what we can do is send over data bytes of the MP3 file over a wire connection using a SPI peripheral. That way the 
+ESP32-D0WD-3 can work its magic with its own DAC and input that signal into a LM386 module with a speaker attahced to it.
+
+The documentation here is for the SPI communication interface based off of esp-idf framework, provided by espressif
+{however the main importance is the DAC peripheral}
+
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   
+                        Digital to Analog Converter
+    *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *
+ESP32 has two 8-bit DAC channels respectively connected to GPIO25 (Channel 1) and GPIO26(Channel 2). Each DAC channel can convert the digital value
+0-255 to the analog voltage 0-VREF(The reference voltage 'Vref' here is input from the pin VDD3P3_RTC, which ideally equals to the power supply VDD)
+The output voltage can be calculated as the following:
+    out_voltage = (Vref * dig_val)/255
+
+    The DAC peripheral supports outputting analog signal in the following ways....
+        1.Outputting a voltage directly. The DAC channel keeps outputting a specified voltage
+        2.Outputting continous analog siganl by DMA. The DAC converts the data in a buffer at a specified frequency
+        3.Outputting a cosine wave by the cosine wave generator. The DAC channel can output a cosine wave with specified frequnecy and amplitude
+
+For other analog output options, see Sigma-Delta Modulation and LED Control. Both modules producce high-frequency PWM/PDM output, which can be hardware low-pass filtered in order
+to generate a lower frequency analog output.
+
+Two 8-bit DAC channels can be used to convert digital values into output analog output signals.
+The design structure is composede of integrated resistor strings and a buffer.
+This ddual DAC supports power supply and uses it as input voltage reference. The dual DAC also supports independent or simultaneous signal conversions inside of its channels.
+[Features of the DAC]
+--independent or simultaneous conversion in channels
+--voltage reference from the VDD3P3_RTC pin
+--cosine waveform (CW) generator
+--DMA capability
+--start of conversion can be triggered by software or SAR ADC FSM
+--Can be fully controlled by the ULP coprocessor
+
+[Structure]
+The two 8-bit DAC channels can be configured independently. For each DAC channel, the output analog voltage can be calculated as follows.
+    --DACn_OUT = VDD3p3_RTC * PDACn_DA/255
+    VDD3p3 = usually 3.3V
+    PDACn_DAC has multiple sources: CW generator, register RTCIO_PAD_DACn_REG, and DMA
+The start of conversion is determined by register RTCIO_PAD_PDACn_XPD_DAC. The conversion process itself is controlled by software or SAR ADC FSM.
+
+[Cosine Waveform Generator]
+The CW generator can be used to generate a cosine/ sine tone. It will have the following features....
+    --Adjustable frequency
+    The frequency of CW can be adjusted by register SENS_SAR_SW_FSTEP[15:0]
+        freq = (dig_clk_rtc_freq* SENS_SAR_SW_FSTEP)/65536
+    the frequency of dig_clk rtc is typically 8MHz
+    --Scaling: Configuring register SENS_SAR_DAC_SCALEn[1:0], the amplitude of a CW can be multiplied by 1,1/2,1/4, or 1/8
+    --DC Offset: The offset may be introduced by register SENS_SAR_DAC_DCn[7:0]. The result will be saturated.
+    --Phase Shift: A phase shift of 0 / 90 / 180 /270 degrees can be added by setting register SENS_SAR_DAC_INVn[1:0]
+
+[Functional Overview]
+**Resources Management**
+The DAC on ESP32 has two channels. The channels have separate software resources and can be managed by dac_oneshot_handle_t,
+dac_cosine_handle_t,  or dac_continous_handle_t according to the usage. Registering different modes on a same DAC channel is not allowed.
+
+
+**Direct Voltage Output (One-Shot/ Direct Mode)** ....
+The DAC channels in the group can convert an 8-bit digital value into the analog when dac_oneshot_output_voltage() is called(it can be called in ISR). The analog voltage is kept on the DAC channel
+until the next conversion starts. To start the voltage conversion, the DAC channels need to be enabled first through registering by dac_oneshot_new_channel()
+
+**Continuous Wave Output (Continous/DMA Mode)** ...might be our best bet???
+DAC channels can convert digital data continously via the DMA. There are three ways to write the DAC data:
+    --1. Normal writing(synchronous): Data can be transmitted at one time and kept blocked until all the data has been loaded into the DMA buffer, and the voltage is kept as the last conversion value while no more
+    data is inputted. It is usually used to transport a long signal like an audio.
+    --2. Asynchronous Writing: Data can be transmitted asynchronously based on the event callback. dac_event_callbacks_t::on_convert_done must be registered to use asyncrhonous mode.
+    Users can get the dac_evnt_data_t in the callback which contains the DMA buffer address and length, allowing them to load the data into the buffer directly. To use the asynchronous writing, call dac_continous_register_event_callback() to
+    register the dac_event_callbacks_t::on_convert_done before enabling, and then dac_continous_start_async_writing() to start the asynchronous writing. Note that once the asynchronous writing is started, the callback function will be triggered continuously. Call 
+    dac_continous_write_asynchronously() to load the data either in a separate task or in the callback directly.
+    Refer to peripherals/dac/dac_continuous/dac_audio for examples
+
+
+
+Seems like we are going with the Asynchronous Continous Writing Mode....
+--dac_continous_handle_t
+--dac_event_callbacks_t::on_convert_done
+--dac_event_data_t
+--dac_continous_register_event_callback
+--dac_continous_start_async_writing()
+--dac_continous_write_asynchronously
+{Variables.....dac_continous_digi_clk_src_t::DAC_DIGI_CLK_SRC_DEFAULT}    

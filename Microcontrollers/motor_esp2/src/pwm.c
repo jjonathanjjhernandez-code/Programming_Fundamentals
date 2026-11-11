@@ -127,82 +127,70 @@ analyzer during debugging
  *
  * Needs `esp_adc` in the REQUIRES list of src/CMakeLists.txt:
  *   REQUIRES driver esp_adc log freertos
+ 
+
+ 
  */
 
-#include <stdio.h>
 
-#include "driver/gpio.h"
+#include <stdio.h>
 #include "driver/mcpwm_prelude.h"
-#include "esp_adc/adc_oneshot.h"
-#include "esp_log.h"
+#include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "driver/uart.h"
+#include "esp_log.h"
+#include "adc.h"
+#include "pwm.h"
+
+#define UART_NUM UART_NUM_0
+#define BUFFER_SIZE 128
+static const char *uart_tag = "UART";
+/* ---- Main ------------------------------------------------------------- */
+
+
 
 static const char *PWMTAG = "PWM";
-static const char *ADCTAG = "ADC";
-
-/* ---- ADC configuration ------------------------------------------------ */
-
-#define ADC_UNIT            ADC_UNIT_1
-#define ADC_CHANNEL         ADC_CHANNEL_0     /* GPIO36 on the ESP32 */
-#define ADC_ATTEN           ADC_ATTEN_DB_12
-#define ADC_BITWIDTH_CFG    ADC_BITWIDTH_DEFAULT   /* 12 bit: 0-4095 */
-
-#define ADC_LOW_THRESHOLD   1600              /* below  -> min pulse */
-#define ADC_HIGH_THRESHOLD  3200              /* above  -> max pulse */
-
-/* ---- PWM / ESC configuration ------------------------------------------ */
 
 #define PWM_GPIO            GPIO_NUM_18       /* check against the DEVKIT V1 pinout */
 #define PWM_GROUP_ID        0                 /* timer and operator must share a group */
 #define PWM_RESOLUTION_HZ   1000000           /* 1 MHz -> 1 tick = 1 us */
 #define PWM_PERIOD_TICKS    20000             /* 20000 us = 20 ms = 50 Hz */
 
-#define ESC_MIN_PULSE_US    1000              /* full reverse (bidirectional ESC) */
-#define ESC_MIDDLE_PULSE_US 1500              /* neutral / stopped */
-#define ESC_MAX_PULSE_US    2000              /* full forward */
+
+//DIRECTIONAL MOVEMENT FOR LAZY SUZAN TABLE!!!!
+#define LAZY_POS_4  400
+#define LAZY_POS_3   1200              /* full reverse (bidirectional ESC) */
+#define LAZY_POS_2 1900              /* neutral / stopped */
+#define LAZY_POS_1    2500              /* full forward */
+
+//DIRECTIONAL MOVEMENT FOR SERVO TRAP DOOR!!!!
+#define TRAP_DOOR_CLOSE 1800 //starting the position
+#define TRAP_DOOR_OPEN  2400 //opening position??
 
 #define ESC_ARM_TIME_MS     2000              /* hold neutral at boot so the ESC arms */
 #define CONTROL_PERIOD_MS   20                /* one update per PWM period */
 #define RAMP_STEP_US        12                 /* 5 us / 20 ms -> 1000 us takes ~4 s */
 
-static adc_oneshot_unit_handle_t adc1_handle;
-static uint32_t current_us = ESC_MIDDLE_PULSE_US;   /* last commanded pulse */
 
-/* ---- ADC -------------------------------------------------------------- */
 
-static void adc_init(void)
-{
-    adc_oneshot_unit_init_cfg_t unit_config = {
-        .unit_id  = ADC_UNIT,
-        .ulp_mode = ADC_ULP_MODE_DISABLE,
-    };
-    ESP_ERROR_CHECK(adc_oneshot_new_unit(&unit_config, &adc1_handle));
-    ESP_LOGI(ADCTAG, "ADC1 initialized, handle: %p", (void *)adc1_handle);
-
-    adc_oneshot_chan_cfg_t chan_config = {
-        .atten    = ADC_ATTEN,
-        .bitwidth = ADC_BITWIDTH_CFG,
-    };
-    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL, &chan_config));
-    ESP_LOGI(ADCTAG, "ADC1 channel %d configured", ADC_CHANNEL);
-}
+static uint32_t current_us = LAZY_POS_1;   /* last commanded pulse */
 
 /* Turn a raw pot reading into a target pulse width. Swap this function out
  * to change how the pot behaves (see the proportional version in the chat). */
-static uint32_t target_from_adc(int raw)
-{
-    if (raw < ADC_LOW_THRESHOLD)  return ESC_MIN_PULSE_US;
-    if (raw > ADC_HIGH_THRESHOLD) return ESC_MAX_PULSE_US;
-    return ESC_MIDDLE_PULSE_US;
-}
+// static uint32_t target_from_adc(int raw)
+// {
+//     if (raw < ADC_LOW_THRESHOLD)  return ESC_MIN_PULSE_US;
+//     if (raw > ADC_HIGH_THRESHOLD) return ESC_MAX_PULSE_US;
+//     return ESC_MIDDLE_PULSE_US;
+// }
 
 /* ---- ESC helpers ------------------------------------------------------ */
 
 static uint32_t esc_clamp_us(uint32_t us)
 {
-    if (us < ESC_MIN_PULSE_US) return ESC_MIN_PULSE_US;
-    if (us > ESC_MAX_PULSE_US) return ESC_MAX_PULSE_US;
+    if (us < 500) return 500;
+    if (us > 2500) return 2500;
     return us;
 }
 
@@ -213,6 +201,15 @@ static esp_err_t esc_set_pulse_us(mcpwm_cmpr_handle_t comparator, uint32_t pulse
     current_us = pulse_us;
     return mcpwm_comparator_set_compare_value(comparator, pulse_us);
 }
+
+
+
+
+
+
+
+
+
 
 /* Move ONE slew step toward the target. Non-blocking: call once per control
  * period so the caller can keep reading inputs while the output ramps. */
@@ -234,27 +231,28 @@ static void esc_step_toward(mcpwm_cmpr_handle_t comparator, uint32_t target_us)
     ESP_ERROR_CHECK(esc_set_pulse_us(comparator, next));
 }
 
-/* ---- Main ------------------------------------------------------------- */
+//place the handles here....
+mcpwm_timer_handle_t timer = NULL;
+mcpwm_oper_handle_t oper = NULL;
+mcpwm_cmpr_handle_t comparator = NULL;
+mcpwm_gen_handle_t generator = NULL;
 
-void app_main(void)
-{
-    /* 1. Timer: default clock source is the 160 MHz PLL, divided down to 1 MHz */
-    mcpwm_timer_handle_t timer = NULL;
+void pwm_init(void){
+        /* 1. Timer: default clock source is the 160 MHz PLL, divided down to 1 MHz */
     mcpwm_timer_config_t timer_config = {
-        .group_id      = PWM_GROUP_ID,
+        .group_id      = 0,
         .clk_src       = MCPWM_TIMER_CLK_SRC_DEFAULT,
-        .resolution_hz = PWM_RESOLUTION_HZ,
+        .resolution_hz = 1000000,
         .count_mode    = MCPWM_TIMER_COUNT_MODE_UP,
-        .period_ticks  = PWM_PERIOD_TICKS,
+        .period_ticks  = 20000,
         .intr_priority = 0,
     };
     ESP_ERROR_CHECK(mcpwm_new_timer(&timer_config, &timer));
     ESP_LOGI(PWMTAG, "Timer created");
 
     /* 2. Operator: same group as the timer, then connected to it */
-    mcpwm_oper_handle_t oper = NULL;
     mcpwm_operator_config_t oper_config = {
-        .group_id      = PWM_GROUP_ID,
+        .group_id      = 0,
         .intr_priority = 0,
     };
     ESP_ERROR_CHECK(mcpwm_new_operator(&oper_config, &oper));
@@ -263,19 +261,17 @@ void app_main(void)
 
     /* 3. Comparator: sets the pulse width. New values latch when the timer
      * is empty (start of a period) so changes can't glitch a pulse. */
-    mcpwm_cmpr_handle_t comparator = NULL;
     mcpwm_comparator_config_t cmpr_config = {
         .intr_priority = 0,
         .flags.update_cmp_on_tez = true,
     };
     ESP_ERROR_CHECK(mcpwm_new_comparator(oper, &cmpr_config, &comparator));
-    ESP_ERROR_CHECK(esc_set_pulse_us(comparator, ESC_MIDDLE_PULSE_US));
-    ESP_LOGI(PWMTAG, "Comparator created, pulse = %d us", ESC_MIDDLE_PULSE_US);
+    ESP_ERROR_CHECK(esc_set_pulse_us(comparator, LAZY_POS_1));//setting the default us
+    ESP_LOGI(PWMTAG, "Comparator created, pulse = %d us", LAZY_POS_1);
 
     /* 4. Generator: drives the GPIO */
-    mcpwm_gen_handle_t generator = NULL;
     mcpwm_generator_config_t gen_config = {
-        .gen_gpio_num = PWM_GPIO,
+        .gen_gpio_num = GPIO_NUM_18,
     };
     ESP_ERROR_CHECK(mcpwm_new_generator(oper, &gen_config, &generator));
 
@@ -292,43 +288,35 @@ void app_main(void)
         MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP,
                                        comparator,
                                        MCPWM_GEN_ACTION_LOW)));
-    ESP_LOGI(PWMTAG, "Generator created on GPIO %d", PWM_GPIO);
+    ESP_LOGI(PWMTAG, "Generator created on GPIO %d", GPIO_NUM_18);
 
     /* 5. Start the timer; hardware now runs the waveform on its own */
     ESP_ERROR_CHECK(mcpwm_timer_enable(timer));
     ESP_ERROR_CHECK(mcpwm_timer_start_stop(timer, MCPWM_TIMER_START_NO_STOP));
-    ESP_LOGI(PWMTAG, "PWM running: 50 Hz, %d us pulse", ESC_MIDDLE_PULSE_US);
+    // ESP_LOGI(PWMTAG, "PWM running: 50 Hz, %d us pulse", ESC_MIDDLE_PULSE_US);
 
-    /* Hold neutral so the ESC can arm before any throttle is requested */
-    ESP_LOGI(PWMTAG, "Arming ESC (%d ms at neutral)...", ESC_ARM_TIME_MS);
+    // /* Hold neutral so the ESC can arm before any throttle is requested */
+    // ESP_LOGI(PWMTAG, "Arming ESC (%d ms at neutral)...", ESC_ARM_TIME_MS);
     vTaskDelay(pdMS_TO_TICKS(ESC_ARM_TIME_MS));
 
-    /* 6. ADC: initialize ONCE, before the control loop */
-    adc_init();
+}
 
-    int raw = 0;
-    uint32_t target_us = ESC_MIDDLE_PULSE_US;
-    int log_divider = 0;
+uint32_t target_us = TRAP_DOOR_CLOSE;
+uint8_t ch;
 
+void app_main(void){
+pwm_init();
+uart_driver_install(UART_NUM, BUFFER_SIZE * 2, 0, 0, NULL, 0);
     while (1) {
-        esp_err_t ret = adc_oneshot_read(adc1_handle, ADC_CHANNEL, &raw);
-        if (ret == ESP_OK) {
-            target_us = target_from_adc(raw);
-        } else {
-            /* Failsafe: if the input is unreadable, head for neutral */
-            target_us = ESC_MIDDLE_PULSE_US;
-            ESP_LOGW(ADCTAG, "ADC read failed: %s", esp_err_to_name(ret));
+    if (uart_read_bytes(UART_NUM, &ch, 1, pdMS_TO_TICKS(CONTROL_PERIOD_MS)) > 0) {
+        switch (ch) {
+        case '2': target_us = TRAP_DOOR_OPEN; break;
+//        case '3': target_us = LAZY_POS_3;    break;
+        case '1': target_us = TRAP_DOOR_CLOSE;    break;
+//        case '4': target_us = LAZY_POS_4;   break;
+        default: break;
         }
-
-        esc_step_toward(comparator, target_us);
-
-        /* Log twice a second instead of every 20 ms */
-        if (++log_divider >= (500 / CONTROL_PERIOD_MS)) {
-            log_divider = 0;
-            ESP_LOGI(ADCTAG, "raw=%d target=%lu us current=%lu us",
-                     raw, (unsigned long)target_us, (unsigned long)current_us);
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(CONTROL_PERIOD_MS));
     }
+    esc_step_toward(comparator, target_us);   /* one slew step per loop */
+}
 }
